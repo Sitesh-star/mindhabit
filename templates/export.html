@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export Results - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">psychology</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item active"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="export-heading">
+        <div>
+          <small>EXPORT &amp; DOWNLOAD</small>
+          <h1>Export Results</h1>
+          <p>Review and download the latest completed MindHabits results for the current dataset.</p>
+        </div>
+        {% if dataset_name %}
+        <span class="export-dataset-label"><span class="material-symbols-outlined">description</span>{{ dataset_name }}</span>
+        {% endif %}
+      </section>
+
+      <section class="export-summary {% if not has_results %}export-summary-empty{% endif %}">
+        <div class="export-summary-icon"><span class="material-symbols-outlined">{% if has_results %}task_alt{% else %}pending_actions{% endif %}</span></div>
+        <div>
+          <small>REPORT STATUS</small>
+          {% if has_results %}
+          <h2>Your available results are ready</h2>
+          <p>The report uses results already generated for this dataset. Opening or downloading it does not run the models again.</p>
+          {% else %}
+          <h2>No completed results are available yet</h2>
+          <p>Complete Mental Well-Being analysis or open Habit Insights before downloading a report.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <div class="export-availability">
+        {% if not wellbeing_result %}
+        <div class="export-status-message">
+          <span class="material-symbols-outlined">psychology</span>
+          <p>Run Mental Well-Being Analysis first to include prediction results in the report.</p>
+          {% if dataset_name %}<a href="{{ url_for('wellbeing') }}">Open Mental Well-Being</a>{% endif %}
+        </div>
+        {% endif %}
+        {% if not habit_available %}
+        <div class="export-status-message">
+          <span class="material-symbols-outlined">insights</span>
+          <p>No habit insights are currently available for export.</p>
+          {% if dataset_name %}<a href="{{ url_for('habits') }}">Open Habit Insights</a>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if has_results %}
+      <section class="export-preview">
+        <div class="export-details-heading">
+          <h2>Report Preview</h2>
+          <p>Only clear, user-facing results are included in downloads.</p>
+        </div>
+
+        {% if wellbeing_result %}
+        <article class="export-result-section">
+          <div class="export-result-heading">
+            <span class="material-symbols-outlined">favorite</span>
+            <div><small>MENTAL WELL-BEING</small><h3>{{ wellbeing_result.outcome_display_name }}</h3></div>
+          </div>
+          <div class="export-metric-grid">
+            <div><small>Predicted result</small><strong>{{ wellbeing_result.prediction.value }}</strong></div>
+            <div><small>Confidence</small><strong>{% if wellbeing_result.prediction.confidence is not none %}{{ wellbeing_result.prediction.confidence }}%{% else %}Not available{% endif %}</strong></div>
+            <div><small>Confidence level</small><strong>{{ wellbeing_result.prediction.confidence_band or 'Not available' }}</strong></div>
+            <div><small>Best model</small><strong>{{ wellbeing_result.best_model.name }}</strong></div>
+            {% if wellbeing_result.problem_type == 'Classification' %}
+            <div><small>Macro F1</small><strong>{{ wellbeing_result.best_model.macro_f1 }}%</strong></div>
+            {% else %}
+            <div><small>RMSE</small><strong>{{ wellbeing_result.best_model.rmse }}</strong></div>
+            {% endif %}
+          </div>
+
+          <div class="export-list-columns">
+            <div>
+              <h4>Important wellness factors</h4>
+              {% if wellbeing_result.contributing_factors %}
+              <ul>{% for factor in wellbeing_result.contributing_factors %}<li>{{ factor.name }}</li>{% endfor %}</ul>
+              {% else %}<p>No important factors were available.</p>{% endif %}
+            </div>
+            <div>
+              <h4>Suggested actions</h4>
+              {% if wellbeing_result.recommendations %}
+              <ul>{% for action in wellbeing_result.recommendations %}<li>{{ action }}</li>{% endfor %}</ul>
+              {% else %}<p>No specific actions were available.</p>{% endif %}
+            </div>
+          </div>
+        </article>
+        {% endif %}
+
+        {% if habit_result %}
+        <article class="export-result-section">
+          <div class="export-result-heading">
+            <span class="material-symbols-outlined">insights</span>
+            <div><small>HABIT INSIGHTS</small><h3>Habit Overview</h3></div>
+          </div>
+          <div class="export-metric-grid habit-export-counts">
+            <div><small>Positive patterns</small><strong>{{ habit_result.positive_count }}</strong></div>
+            <div><small>Areas to improve</small><strong>{{ habit_result.improvement_count }}</strong></div>
+            <div><small>Neutral / Monitor</small><strong>{{ habit_result.neutral_count }}</strong></div>
+            <div><small>Total insights</small><strong>{{ habit_result.total_insights }}</strong></div>
+          </div>
+          <div class="export-insight-list">
+            {% for insight in habit_result.insights %}
+            <div class="export-insight-item insight-{{ insight.status }}">
+              <div><span>{{ insight.badge }}</span>{% if insight.trend %}<span class="export-trend">{{ insight.trend }}</span>{% endif %}</div>
+              <h4>{{ insight.title }}</h4>
+              <p>{{ insight.summary }}</p>
+              <small>Suggested focus</small>
+              <strong>{{ insight.focus }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+        {% endif %}
+      </section>
+
+      <section class="export-section">
+        <div class="export-section-heading">
+          <small>AVAILABLE DOWNLOADS</small>
+          <h2>Download Your Report</h2>
+          <p>Both files contain the same available analysis sections in different formats.</p>
+        </div>
+        <div class="export-grid">
+          <article class="export-card export-card-primary">
+            <div class="export-card-icon"><span class="material-symbols-outlined">picture_as_pdf</span></div>
+            <h3>PDF Wellness Report</h3>
+            <p>A complete user-friendly report with your result, wellness factors, selected graphs, habit insights, and detailed recommended actions.</p>
+            <div class="export-file-info"><span><span class="material-symbols-outlined">article</span>PDF File</span></div>
+            <a href="{{ url_for('download_analysis_pdf') }}" class="export-button"><span class="material-symbols-outlined">download</span>Download PDF</a>
+          </article>
+          <article class="export-card">
+            <div class="export-card-icon"><span class="material-symbols-outlined">table_view</span></div>
+            <h3>CSV Report</h3>
+            <p>A structured table containing the available results, factors, actions, and habit insights without graphs.</p>
+            <div class="export-file-info"><span><span class="material-symbols-outlined">description</span>CSV File</span></div>
+            <a href="{{ url_for('download_analysis_csv') }}" class="export-button"><span class="material-symbols-outlined">download</span>Download CSV</a>
+          </article>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="export-note">
+        <span class="material-symbols-outlined">info</span>
+        <div>
+          <h3>Wellness Awareness</h3>
+          <p>Exported results summarize patterns found in the uploaded data. They are for wellness awareness and are not a medical diagnosis.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

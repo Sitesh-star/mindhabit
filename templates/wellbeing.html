@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mental Well-Being - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item active"><span class="material-symbols-outlined">psychology</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="wellbeing-heading">
+        <div>
+          <small>WELL-BEING ANALYSIS</small>
+          <h1>Mental Well-Being</h1>
+          <p>Understand the well-being pattern found in your recent data and the habits that may support it.</p>
+        </div>
+      </section>
+
+      {% if relevant_columns %}
+      <section class="wellbeing-panel outcome-panel wellbeing-start-panel">
+        <div class="wellbeing-panel-heading">
+          <div>
+            <h2>Well-Being Analysis</h2>
+            <p>MindHabits automatically chooses a suitable well-being outcome from your data.</p>
+          </div>
+        </div>
+
+        {% if recommended_outcome %}
+        <div class="recommended-analysis">
+          <div class="recommended-icon"><span class="material-symbols-outlined">stars</span></div>
+          <div>
+            <h3>{{ recommended_outcome.display_name }}</h3>
+            <p>MindHabits found enough information to analyse patterns related to {{ recommended_outcome.display_name | lower }}.</p>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('wellbeing') }}" class="analysis-run-form" id="analysisForm">
+          <button type="submit" class="primary-button" id="analysisButton">
+            <span class="material-symbols-outlined">analytics</span>
+            <span id="analysisButtonText">Analyse My Well-Being</span>
+          </button>
+        </form>
+        {% else %}
+        <p class="outcome-empty">MindHabits found relevant well-being information, but no suitable prediction outcome could be identified automatically.</p>
+        {% endif %}
+      </section>
+
+      <details class="wellbeing-disclosure detection-disclosure">
+        <summary>
+          <span class="disclosure-summary-icon material-symbols-outlined">dataset</span>
+          <span>
+            <strong>Detected Wellness Data</strong>
+            <small>View the information MindHabits found in your dataset.</small>
+          </span>
+          <span class="detection-count">{{ total_relevant_columns }} found</span>
+        </summary>
+        <div class="disclosure-content">
+          <div class="concept-grid">
+            {% for concept, columns in grouped_columns.items() %}
+            <article class="concept-card">
+              <h3>{{ concept }}</h3>
+              <ul>
+                {% for column in columns %}
+                <li>
+                  <strong>{{ column.name }}</strong>
+                  <span>{{ column.data_type }} &middot; {{ column.unique_values }} unique value{% if column.unique_values != 1 %}s{% endif %}</span>
+                </li>
+                {% endfor %}
+              </ul>
+            </article>
+            {% endfor %}
+          </div>
+          {% if alternative_outcomes %}
+          <div class="alternative-outcomes-compact">
+            <h3>Other information considered</h3>
+            <p>{% for column in alternative_outcomes %}{{ column.display_name }}{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
+          </div>
+          {% endif %}
+        </div>
+      </details>
+      {% else %}
+      <section class="wellbeing-panel detection-empty" role="status">
+        <span class="material-symbols-outlined">search_off</span>
+        <p>No suitable mental well-being or habit-related variables were detected in this dataset.</p>
+      </section>
+      {% endif %}
+
+      {% if analysis_error %}
+      <section class="analysis-message analysis-message-error" role="alert">
+        <span class="material-symbols-outlined">error</span>
+        <div>
+          <h3>Analysis could not be completed</h3>
+          <p>{{ analysis_error }}</p>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if analysis_result %}
+      <section class="wellbeing-panel model-analysis-panel result-panel" id="wellbeing-result">
+        <div class="user-wellbeing-result">
+          <div class="result-heading">
+            <div class="result-icon"><span class="material-symbols-outlined">favorite</span></div>
+            <div>
+              <small>YOUR WELL-BEING RESULT</small>
+              <h2>{{ analysis_result.outcome_display_name }}</h2>
+            </div>
+          </div>
+
+          <div class="prediction-highlight">
+            <strong class="prediction-result-value">{{ analysis_result.prediction.value }}</strong>
+            {% if analysis_result.problem_type == 'Classification' %}
+            <p>For {{ analysis_result.outcome_display_name | lower }}, the pattern in your recent data is closest to <strong>{{ analysis_result.prediction.value }}</strong>.</p>
+            {% else %}
+            <p>Based on your recent data, the estimated {{ analysis_result.outcome_display_name | lower }} is <strong>{{ analysis_result.prediction.value }}</strong>.</p>
+            {% endif %}
+          </div>
+
+          <div class="result-supporting-info">
+            {% if analysis_result.prediction.confidence is not none %}
+            <p class="confidence-line">
+              <strong>Confidence: {{ analysis_result.prediction.confidence }}%</strong>
+              <span>{{ analysis_result.prediction.confidence_band }}</span>
+            </p>
+            {% elif analysis_result.problem_type == 'Classification' %}
+            <p class="confidence-unavailable">Confidence is not available for this analysis.</p>
+            {% endif %}
+          </div>
+
+          <p class="prediction-record">
+            <span class="material-symbols-outlined">event_note</span>
+            {{ analysis_result.prediction.record_description }}
+          </p>
+
+          {% if analysis_result.prediction.confidence_band == 'Low confidence' %}
+          <p class="low-confidence-note">
+            This result has low confidence. Use the suggestions as general wellness guidance rather than a definite conclusion.
+          </p>
+          {% endif %}
+
+          <div class="factor-section">
+            <h3>Factors Related to This Result</h3>
+            {% if analysis_result.contributing_factors %}
+            <ul class="factor-chips">
+              {% set factor_state = namespace(seen=[]) %}
+              {% for factor in analysis_result.contributing_factors %}
+              {% if factor.name not in factor_state.seen %}
+              {% set factor_state.seen = factor_state.seen + [factor.name] %}
+              <li><span>{{ factor_state.seen | length }}</span>{{ factor.name }}</li>
+              {% endif %}
+              {% endfor %}
+            </ul>
+            <p class="factor-caution">These factors were associated with the analysis and do not necessarily mean they caused the result.</p>
+            {% else %}
+            <p>Related wellness factors are not available for this analysis.</p>
+            {% endif %}
+          </div>
+
+          <div class="recommendation-section">
+            <div class="recommendation-heading">
+              <span class="material-symbols-outlined">tips_and_updates</span>
+              <div>
+                <h3>Suggested Actions</h3>
+                <p>Simple steps you can consider based on the patterns in your data.</p>
+              </div>
+            </div>
+            {% if analysis_result.recommendations %}
+            <ul class="recommendation-list">
+              {% for recommendation in analysis_result.recommendations %}
+              {% set recommendation_parts = recommendation.split('. ', 1) %}
+              <li>
+                <span class="recommendation-number">{{ loop.index }}</span>
+                <div>
+                  <strong>{{ recommendation_parts[0] }}{% if recommendation_parts | length > 1 %}.{% endif %}</strong>
+                  {% if recommendation_parts | length > 1 %}<span>{{ recommendation_parts[1] }}</span>{% endif %}
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p>No specific habit suggestions could be generated from the available wellness factors.</p>
+            {% endif %}
+            {% if analysis_result.prediction.confidence_band == 'Low confidence' %}
+            <p class="recommendation-confidence-note">Because confidence is low, treat these as general wellness suggestions.</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <details class="wellbeing-disclosure technical-details-panel">
+        <summary>
+          <span class="disclosure-summary-icon material-symbols-outlined">tune</span>
+          <span>
+            <strong>Technical Details</strong>
+            <small>Optional model and evaluation information.</small>
+          </span>
+        </summary>
+        <div class="technical-details-content">
+          <div class="model-result-summary">
+            <div><small>Outcome analysed</small><strong>{{ analysis_result.outcome_display_name }}</strong></div>
+            <div><small>Selected model</small><strong>{{ analysis_result.best_model.name }}</strong></div>
+            {% if analysis_result.problem_type == 'Classification' %}
+            <div><small>Accuracy</small><strong>{{ analysis_result.best_model.accuracy }}%</strong></div>
+            <div><small>Macro F1</small><strong>{{ analysis_result.best_model.macro_f1 }}%</strong></div>
+            {% else %}
+            <div><small>RMSE</small><strong>{{ analysis_result.best_model.rmse }}</strong></div>
+            <div><small>R&sup2;</small><strong>{{ analysis_result.best_model.r2 }}</strong></div>
+            {% endif %}
+          </div>
+
+          <div class="model-comparison">
+            <h3>Model comparison</h3>
+          <div class="table-wrapper">
+            <table class="model-table">
+              <thead>
+                {% if analysis_result.problem_type == 'Classification' %}
+                <tr><th>Model</th><th>Accuracy</th><th>Macro F1</th></tr>
+                {% else %}
+                <tr><th>Model</th><th>MAE</th><th>RMSE</th><th>R&sup2;</th></tr>
+                {% endif %}
+              </thead>
+              <tbody>
+                {% for model in analysis_result.models %}
+                {% if analysis_result.problem_type == 'Classification' %}
+                <tr>
+                  <td>{{ model.name }}{% if loop.first %}<span class="best-model-label">Best</span>{% endif %}</td>
+                  <td>{{ model.accuracy }}%</td>
+                  <td>{{ model.macro_f1 }}%</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td>{{ model.name }}{% if loop.first %}<span class="best-model-label">Best</span>{% endif %}</td>
+                  <td>{{ model.mae }}</td>
+                  <td>{{ model.rmse }}</td>
+                  <td>{{ model.r2 }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if analysis_result.problem_type == 'Classification' %}
+          <details class="technical-metrics">
+            <summary>View additional evaluation measures</summary>
+            <div class="table-wrapper">
+              <table class="model-table">
+                <thead><tr><th>Model</th><th>Macro Precision</th><th>Macro Recall</th><th>Weighted F1</th></tr></thead>
+                <tbody>
+                  {% for model in analysis_result.models %}
+                  <tr><td>{{ model.name }}</td><td>{{ model.macro_precision }}%</td><td>{{ model.macro_recall }}%</td><td>{{ model.weighted_f1 }}%</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+          {% endif %}
+
+          <p class="analysis-details">
+            {{ analysis_result.rows_used }} rows and {{ analysis_result.predictor_count }} predictor columns used &middot; {{ analysis_result.split_method }}.
+            {% if analysis_result.sampled %}A reproducible sample was used to keep the analysis responsive.{% endif %}
+          </p>
+          {% if analysis_result.model_errors %}
+          <p class="analysis-details">Some models could not be evaluated: {{ analysis_result.model_errors | join(', ') }}.</p>
+          {% endif %}
+        </div>
+        </div>
+      </details>
+      {% endif %}
+
+      <section class="wellbeing-note">
+        <span class="material-symbols-outlined">info</span>
+        <div>
+          <h3>Wellness Disclaimer</h3>
+          <p>MindHabits provides wellness insights for awareness and self-reflection. It does not provide medical diagnosis or replace professional healthcare advice.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const analysisForm = document.getElementById('analysisForm');
+    if (analysisForm) {
+      analysisForm.addEventListener('submit', function () {
+        const button = document.getElementById('analysisButton');
+        const buttonText = document.getElementById('analysisButtonText');
+        button.disabled = true;
+        buttonText.textContent = 'Analysing your data...';
+      });
+    }
+  </script>
+</body>
+</html>

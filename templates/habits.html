@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Insights - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">psychology</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item active"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="habit-heading">
+        <div>
+          <small>YOUR DAILY PATTERNS</small>
+          <h1>Your Habit Insights</h1>
+          <p>See which daily habits are going well and which ones may need more attention.</p>
+        </div>
+        {% if habit_result %}
+        <a href="{{ url_for('upload') }}" class="primary-button">Use Another Dataset<span class="material-symbols-outlined">upload_file</span></a>
+        {% endif %}
+      </section>
+
+      {% if habit_result %}
+      <section class="habit-overview">
+        <div class="habit-count-card positive-count">
+          <span class="material-symbols-outlined">check_circle</span>
+          <div>
+            <strong>{{ habit_result.positive_count }} habit{% if habit_result.positive_count != 1 %}s{% endif %} going well</strong>
+            <p>Supportive patterns worth continuing.</p>
+          </div>
+        </div>
+        <div class="habit-count-card improve-count">
+          <span class="material-symbols-outlined">priority_high</span>
+          <div>
+            <strong>{{ habit_result.improvement_count }} habit{% if habit_result.improvement_count != 1 %}s{% endif %} need attention</strong>
+            <p>Patterns where a small change may help.</p>
+          </div>
+        </div>
+        <div class="habit-count-card neutral-count">
+          <span class="material-symbols-outlined">visibility</span>
+          <div>
+            <strong>{{ habit_result.neutral_count }} habit{% if habit_result.neutral_count != 1 %}s{% endif %} to keep an eye on</strong>
+            <p>Stable patterns worth watching.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="habit-section">
+        <div class="habit-section-heading">
+          <small>YOUR STRONGEST PATTERNS</small>
+          <h2>What your habits show</h2>
+          <p>These are the most useful recurring habits found across your data.</p>
+        </div>
+
+        {% if habit_result.insights %}
+        <div class="habit-grid">
+          {% for insight in habit_result.insights %}
+          <article class="recommendation-card insight-{{ insight.status }}">
+            <div class="recommendation-top">
+              <div class="recommendation-icon"><span class="material-symbols-outlined">{{ insight.icon }}</span></div>
+              <span class="priority-badge {{ insight.status }}">{{ insight.display_status }}</span>
+            </div>
+            <h3>{{ insight.display_title }}</h3>
+            <p>{{ insight.display_summary }}</p>
+            {% if insight.trend %}
+            <span class="trend-badge trend-{{ insight.trend | lower }}">
+              <span class="material-symbols-outlined">
+                {% if insight.trend == 'Improving' %}trending_up{% elif insight.trend == 'Worsening' %}trending_down{% elif insight.trend == 'Stable' %}trending_flat{% else %}sync_alt{% endif %}
+              </span>
+              {% if insight.trend == 'Worsening' %}Getting worse{% else %}{{ insight.trend }}{% endif %}
+            </span>
+            {% endif %}
+            <div class="habit-action">
+              <strong>{% if insight.status == 'positive' %}Keep it up{% else %}Try this{% endif %}</strong>
+              <span>{{ insight.display_action }}</span>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="habit-empty-state">
+          <span class="material-symbols-outlined">data_info_alert</span>
+          <div>
+            <h3>No clear habit patterns were found in this dataset.</h3>
+            <p>Try a dataset with repeated sleep, activity, stress, screen use, mindfulness, or lifestyle information.</p>
+          </div>
+        </div>
+        {% endif %}
+      </section>
+      {% else %}
+      <section class="habit-empty-state habit-no-dataset">
+        <span class="material-symbols-outlined">upload_file</span>
+        <div>
+          <h2>Upload data to explore your habit patterns</h2>
+          <p>MindHabits needs an uploaded CSV before it can analyse sleep, activity, stress, screen use, and other repeated routines.</p>
+          <a href="{{ url_for('upload') }}" class="primary-button">Upload CSV<span class="material-symbols-outlined">arrow_forward</span></a>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="habit-disclaimer">
+        <span class="material-symbols-outlined">info</span>
+        <div>
+          <h3>General Wellness Guidance</h3>
+          <p>These rule-based insights are intended for self-awareness and general wellness guidance. They describe patterns in the uploaded data and are not a substitute for professional support.</p>
+        </div>
+      </section>
+
+      {% if habit_result and habit_result.insights %}
+      <section class="habit-next">
+        <div>
+          <span class="material-symbols-outlined">psychology</span>
+          <div>
+            <h3>Review Your Current Result</h3>
+            <p>Use Mental Well-Being to see what the latest analysed record suggests.</p>
+          </div>
+        </div>
+        <a href="{{ url_for('wellbeing') }}" class="primary-button">Mental Well-Being<span class="material-symbols-outlined">arrow_forward</span></a>
+      </section>
+      {% endif %}
+    </main>
+  </div>
+</body>
+</html>

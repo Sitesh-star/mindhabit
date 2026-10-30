@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Data - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="{{ url_for('static', filename='js/static.js') }}" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item active"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">mood</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main class="upload-main">
+      <section class="page-heading upload-page-heading">
+        <small>DATA INPUT</small>
+        <h1>Upload Data</h1>
+        <p>Add a CSV dataset and continue to preview your information.</p>
+      </section>
+
+      <section class="upload-layout compact-upload-layout">
+        <div class="upload-card compact-upload-card">
+          <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm"
+                data-blob-upload="{{ 'true' if blob_upload_enabled else 'false' }}"
+                data-prepare-url="{{ url_for('prepare_blob_upload') }}"
+                data-complete-url="{{ url_for('complete_blob_upload') }}">
+            <label class="upload-box compact-upload-box" id="dropZone" for="csvFile" tabindex="0">
+              <input type="file" id="csvFile" name="file" accept=".csv,text/csv" required>
+              <span class="material-symbols-outlined">cloud_upload</span>
+              <strong>Drop CSV file here</strong>
+              <span>or click to browse</span>
+            </label>
+
+            <div class="selected-file compact-selected-file" id="selectedFile" role="status" aria-live="polite">
+              No file selected
+            </div>
+
+            {% if upload_error %}
+              <p class="upload-status upload-status-error" role="alert">{{ upload_error }}</p>
+            {% else %}
+              <p class="upload-status" id="uploadStatus" role="status" aria-live="polite"></p>
+            {% endif %}
+
+            <p class="upload-format-note">Accepted format: CSV <span aria-hidden="true">&middot;</span> One dataset at a time</p>
+
+            <button type="submit" class="continue-button" id="continueButton" disabled>
+              Validate &amp; Continue
+              <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="requirements-card compact-requirements-card">
+          <h2>Before You Upload</h2>
+          <div class="requirement-item">
+            <span class="material-symbols-outlined">check_circle</span>
+            <div><strong>CSV Format</strong><p>Upload a valid .csv file.</p></div>
+          </div>
+          <div class="requirement-item">
+            <span class="material-symbols-outlined">check_circle</span>
+            <div><strong>Flexible Columns</strong><p>MindHabits will inspect the available wellness and lifestyle columns automatically.</p></div>
+          </div>
+          <div class="requirement-item">
+            <span class="material-symbols-outlined">check_circle</span>
+            <div><strong>Automatic Validation</strong><p>The system will check the uploaded data before analysis.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="privacy-note compact-privacy-note">
+        <span class="material-symbols-outlined">lock</span>
+        <div><strong>Data Privacy</strong><p>Your uploaded data is used only within MindHabits for analysis.</p></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

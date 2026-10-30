@@ -1,0 +1,31 @@
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Vercel local state
+.vercel/
+node_modules/
+
+# Local runtime data
+instance/
+*.sqlite3
+uploads/
+*.csv
+exports/
+*.pdf
+*.log
+
+# Operating-system files
+.DS_Store
+Thumbs.db

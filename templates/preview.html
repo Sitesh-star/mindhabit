@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Data Preview - MindHabits</title>
+
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+  />
+
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+  />
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">
+          psychology
+        </span>
+      </div>
+
+      <div>
+        <h2>MindHabits</h2>
+        <p>Behavioral Analytics</p>
+      </div>
+
+    </div>
+
+    <nav class="nav-menu">
+
+      <a href="{{ url_for('home') }}" class="nav-item">
+        <span class="material-symbols-outlined">home</span>
+        <span>Home</span>
+      </a>
+
+      <a href="{{ url_for('upload') }}" class="nav-item">
+        <span class="material-symbols-outlined">upload_file</span>
+        <span>Upload Data</span>
+      </a>
+
+      <a href="{{ url_for('preview') }}" class="nav-item active">
+        <span class="material-symbols-outlined">table_chart</span>
+        <span>Data Preview</span>
+      </a>
+
+      <a href="{{ url_for('dashboard') }}" class="nav-item">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+
+      <a href="{{ url_for('wellbeing') }}" class="nav-item">
+        <span class="material-symbols-outlined">mood</span>
+        <span>Mental Well-Being</span>
+      </a>
+
+      <a href="{{ url_for('habits') }}" class="nav-item">
+        <span class="material-symbols-outlined">insights</span>
+        <span>Habit Insights</span>
+      </a>
+
+      <a href="{{ url_for('export') }}" class="nav-item">
+        <span class="material-symbols-outlined">download</span>
+        <span>Export Results</span>
+      </a>
+
+      <a href="{{ url_for('help_page') }}" class="nav-item">
+        <span class="material-symbols-outlined">help</span>
+        <span>Help / About</span>
+      </a>
+
+    </nav>
+
+  </aside>
+
+
+  <!-- Main Content -->
+  <div class="page">
+
+    <main>
+
+      <!-- Page Heading -->
+      <section class="preview-heading">
+
+        <div>
+
+          <small>
+            DATA REVIEW
+          </small>
+
+          <h1>
+            Data Preview
+          </h1>
+
+          <p>
+            Review your uploaded dataset before continuing
+            to behavioral analysis.
+          </p>
+
+        </div>
+
+
+        <div class="preview-actions">
+
+          <a href="{{ url_for('upload') }}" class="secondary-button">
+
+            <span class="material-symbols-outlined">
+              upload_file
+            </span>
+
+            Upload Another File
+
+          </a>
+
+
+          <a href="{{ url_for('dashboard') }}" class="primary-button">
+
+            Continue to Dashboard
+
+            <span class="material-symbols-outlined">
+              arrow_forward
+            </span>
+
+          </a>
+
+        </div>
+
+      </section>
+
+
+      <!-- Dataset Information -->
+      <section class="dataset-header">
+
+        <div class="dataset-info">
+
+          <div class="dataset-icon">
+
+            <span class="material-symbols-outlined">
+              description
+            </span>
+
+          </div>
+
+          <div>
+
+            <strong>
+              {{ filename }}
+            </strong>
+
+            <p>
+              Uploaded dataset ready for review
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="validation-success">
+
+          <span class="material-symbols-outlined">
+            check_circle
+          </span>
+
+          Dataset Loaded
+
+        </div>
+
+      </section>
+
+
+      <!-- Dataset Statistics -->
+      <section class="preview-stats">
+
+        <div class="preview-stat-card">
+
+          <span class="material-symbols-outlined">
+            table_rows
+          </span>
+
+          <div>
+            <small>Total Records</small>
+            <strong>{{ total_rows }}</strong>
+          </div>
+
+        </div>
+
+
+        <div class="preview-stat-card">
+
+          <span class="material-symbols-outlined">
+            view_column
+          </span>
+
+          <div>
+            <small>Total Columns</small>
+            <strong>{{ total_columns }}</strong>
+          </div>
+
+        </div>
+
+
+        <div class="preview-stat-card">
+
+          <span class="material-symbols-outlined">
+            warning
+          </span>
+
+          <div>
+            <small>Missing Values</small>
+            <strong>{{ missing_values }}</strong>
+          </div>
+
+        </div>
+
+
+        <div class="preview-stat-card">
+
+          <span class="material-symbols-outlined">
+            content_copy
+          </span>
+
+          <div>
+            <small>Duplicate Rows</small>
+            <strong>{{ duplicate_rows }}</strong>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- Preview Table -->
+      <section class="data-table-card">
+
+        <div class="table-heading">
+
+          <div>
+
+            <h2>
+              Dataset Preview
+            </h2>
+
+            <p>
+              Showing the first 5 records from the uploaded dataset.
+            </p>
+
+          </div>
+
+
+          <span class="preview-label">
+            Preview
+          </span>
+
+        </div>
+
+
+        <div class="table-wrapper">
+
+          <table>
+
+            <thead>
+
+              <tr>
+
+                {% for column in columns %}
+
+                  <th>
+                    {{ column }}
+                  </th>
+
+                {% endfor %}
+
+              </tr>
+
+            </thead>
+
+
+            <tbody>
+
+              {% for row in rows %}
+
+                <tr>
+
+                  {% for column in columns %}
+
+                    <td>
+                      {{ row[column] }}
+                    </td>
+
+                  {% endfor %}
+
+                </tr>
+
+              {% endfor %}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+
+        <div class="table-footer">
+
+          <span>
+            Showing first {{ rows|length }} records
+          </span>
+
+          <span>
+            Total records: {{ total_rows }}
+          </span>
+
+        </div>
+
+      </section>
+
+
+      <!-- Validation Summary -->
+      <section class="validation-summary">
+
+        <div class="validation-summary-icon">
+
+          <span class="material-symbols-outlined">
+            verified
+          </span>
+
+        </div>
+
+
+        <div>
+
+          <h3>
+            Dataset Validation
+          </h3>
+
+          <p>
+            The uploaded dataset has been read successfully.
+            Additional validation rules will be added before
+            behavioral analysis begins.
+          </p>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+</body>
+</html>

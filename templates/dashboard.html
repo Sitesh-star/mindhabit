@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ dashboard_url }}" class="nav-item active"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">mood</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="dashboard-heading">
+        <div>
+          <small>DATA OVERVIEW</small>
+          <h1>Dashboard</h1>
+          <p class="dashboard-source"><strong>{{ dataset_name }}</strong><span>{{ source_label }}</span></p>
+        </div>
+        <div class="preview-actions">
+          <a href="{{ url_for('upload') }}" class="secondary-button">Upload CSV</a>
+          <a href="{{ url_for('manual') }}" class="secondary-button">Manual Entry</a>
+        </div>
+      </section>
+
+      <section class="dashboard-stats" aria-label="Dataset overview">
+        <div class="dashboard-stat-card">
+          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">table_rows</span></div>
+          <div><small>Records</small><strong>{{ total_records }}</strong><p>Rows in this dataset</p></div>
+        </div>
+        <div class="dashboard-stat-card">
+          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">view_column</span></div>
+          <div><small>Columns</small><strong>{{ total_columns }}</strong><p>Fields being tracked</p></div>
+        </div>
+        <div class="dashboard-stat-card">
+          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">task_alt</span></div>
+          <div><small>Data complete</small><strong>{{ completion_rate }}%</strong><p>Cells with a value</p></div>
+        </div>
+        <div class="dashboard-stat-card">
+          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">scan_delete</span></div>
+          <div><small>Missing values</small><strong>{{ missing_cells }}</strong><p>{{ duplicate_rows }} duplicate row{% if duplicate_rows != 1 %}s{% endif %}</p></div>
+        </div>
+      </section>
+
+      {% if wellness_detected %}
+      <div class="dashboard-detection-note dashboard-detection-success">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <p>
+          MindHabits detected {{ wellness_column_count }} useful wellness concept{% if wellness_column_count != 1 %}s{% endif %}.
+          {% if date_column %}Available dates are used for simple trends.{% else %}No usable date column was found, so distributions are shown instead.{% endif %}
+        </p>
+      </div>
+      {% else %}
+      <div class="dashboard-detection-note">
+        <span class="material-symbols-outlined">info</span>
+        <p>No clear wellness-related variables were detected in this dataset. Basic dataset information and useful generic summaries are shown where possible.</p>
+      </div>
+      {% endif %}
+
+      <section class="dashboard-section">
+        <div class="table-heading dashboard-section-heading">
+          <div><h2>Quick summaries</h2><p>Simple highlights from the available values.</p></div>
+        </div>
+        {% if column_summaries %}
+        <div class="dashboard-stats">
+          {% for summary in column_summaries %}
+          <article class="dashboard-stat-card dashboard-summary-card">
+            <div>
+              <small>{{ summary.name | replace('_', ' ') | title }} &middot; {{ summary.kind }}</small>
+              <strong>{{ summary.main }}</strong>
+              <p>{{ summary.detail }}</p>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% if selection_note %}<p class="dashboard-limit-note">{{ selection_note }}</p>{% endif %}
+        {% else %}
+        <div class="dashboard-empty">Add some values to see summaries here.</div>
+        {% endif %}
+      </section>
+
+      <section class="dashboard-section">
+        <div class="table-heading dashboard-section-heading">
+          <div><h2>Patterns and Distributions</h2><p>See useful changes over time or the values that appear most often.</p></div>
+        </div>
+        {% if distribution_charts %}
+        <div class="dashboard-chart-grid">
+          {% for chart in distribution_charts %}
+          <article class="chart-card">
+            <div class="chart-card-heading">
+              <div><h2>{{ chart.name | replace('_', ' ') | title }}</h2><p>{{ chart.description }}</p></div>
+            </div>
+            <div class="dashboard-chart-container"><canvas id="distributionChart{{ loop.index0 }}"></canvas></div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="dashboard-empty">More varied values are needed before a useful chart can be shown.</div>
+        {% endif %}
+      </section>
+
+      <section class="dashboard-next-step">
+        <div>
+          <span class="material-symbols-outlined">psychology</span>
+          <div><h3>Explore your well-being</h3><p>Continue with the current dataset to explore well-being patterns.</p></div>
+        </div>
+        <a href="{{ url_for('wellbeing') }}" class="primary-button">Mental Well-Being <span class="material-symbols-outlined">arrow_forward</span></a>
+      </section>
+    </main>
+  </div>
+
+  <script id="distributionData" type="application/json">{{ distribution_charts | tojson }}</script>
+  <script>
+    const distributions = JSON.parse(document.getElementById('distributionData').textContent);
+    distributions.forEach((chart, index) => {
+      const canvas = document.getElementById(`distributionChart${index}`);
+      const isTrend = chart.type === 'line';
+      new Chart(canvas, {
+        type: chart.type || 'bar',
+        data: {
+          labels: chart.labels,
+          datasets: [{
+            data: chart.values,
+            backgroundColor: isTrend ? 'rgba(100, 169, 159, 0.14)' : '#64a99f',
+            borderColor: '#1f6f64',
+            borderWidth: isTrend ? 2 : 1,
+            borderRadius: isTrend ? 0 : 5,
+            tension: isTrend ? 0.3 : 0,
+            pointRadius: isTrend ? 3 : 0,
+            fill: isTrend
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: !isTrend,
+              ticks: { precision: isTrend ? undefined : 0 },
+              title: { display: true, text: chart.y_label || 'Records' }
+            },
+            x: { ticks: { maxRotation: 40, minRotation: 0 } }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

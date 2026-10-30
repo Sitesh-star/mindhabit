@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Entry - MindHabits</title>
+
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+  />
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+  />
+
+  <style>
+    .tracker-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tracker-title { flex: 1; min-width: 0; }
+    .tracker-title label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .tracker-toolbar p, .tracker-footer {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .tracker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .manual-entry table { min-width: 640px; table-layout: fixed; }
+    .manual-entry th, .manual-entry td {
+      padding: 0;
+      border: 1px solid var(--border);
+    }
+    .manual-entry thead th { background: var(--surface-soft); }
+    .manual-entry .row-number {
+      width: 48px;
+      text-align: center;
+      color: var(--text-muted);
+      background: var(--surface-soft);
+      font-size: 12px;
+      font-weight: normal;
+    }
+    .column-letter {
+      display: block;
+      padding-top: 10px;
+      text-align: center;
+      font-size: 10px;
+      color: var(--primary);
+    }
+    .manual-entry input {
+      width: 100%;
+      padding: 14px 12px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--text);
+      font: 13px Arial, Helvetica, sans-serif;
+    }
+    .manual-entry thead input { font-weight: bold; text-align: center; }
+    .manual-entry .tracker-name {
+      max-width: 400px;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .manual-entry input:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+      background: var(--surface);
+    }
+    .manual-entry button {
+      font-family: inherit;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .tracker-footer { padding: 14px 20px; line-height: 1.6; }
+    .saved-trackers { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .saved-trackers label { font-size: 13px; color: var(--text-muted); }
+    .saved-trackers select {
+      max-width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .tracker-actions button:disabled { opacity: 0.6; cursor: wait; }
+    #saveStatus { margin-top: 8px; }
+    #saveStatus[data-error="true"] { color: #a32929; }
+  </style>
+</head>
+
+<body>
+  <!-- Existing MindHabits sidebar navigation -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">psychology</span>
+      </div>
+      <div>
+        <h2>MindHabits</h2>
+        <p>Behavioral Analytics</p>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item">
+        <span class="material-symbols-outlined">home</span>
+        <span>Home</span>
+      </a>
+      <a href="{{ url_for('upload') }}" class="nav-item">
+        <span class="material-symbols-outlined">upload_file</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="{{ url_for('preview') }}" class="nav-item">
+        <span class="material-symbols-outlined">table_chart</span>
+        <span>Data Preview</span>
+      </a>
+      <a href="{% if spreadsheet %}{{ url_for('dashboard', spreadsheet_id=spreadsheet.id) }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="nav-item" id="dashboardNav">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item">
+        <span class="material-symbols-outlined">mood</span>
+        <span>Mental Well-Being</span>
+      </a>
+      <a href="{{ url_for('habits') }}" class="nav-item">
+        <span class="material-symbols-outlined">insights</span>
+        <span>Habit Insights</span>
+      </a>
+      <a href="{{ url_for('export') }}" class="nav-item">
+        <span class="material-symbols-outlined">download</span>
+        <span>Export Results</span>
+      </a>
+      <a href="{{ url_for('help_page') }}" class="nav-item">
+        <span class="material-symbols-outlined">help</span>
+        <span>Help / About</span>
+      </a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="page-heading">
+        <small>DATA INPUT</small>
+        <h1>Enter Data Manually</h1>
+        <p>Build your own habit tracker. Name your columns, then use each row for a daily entry or record.</p>
+      </section>
+
+      <div class="saved-trackers">
+        <label for="savedSpreadsheets">Open a saved spreadsheet</label>
+        <select id="savedSpreadsheets">
+          <option value="">Choose a spreadsheet</option>
+          {% for saved in saved_spreadsheets %}
+          <option value="{{ url_for('manual', spreadsheet_id=saved.id) }}"
+                  {% if spreadsheet and spreadsheet.id == saved.id %}selected{% endif %}>{{ saved.name }}</option>
+          {% endfor %}
+        </select>
+        <a class="secondary-button" href="{{ url_for('manual') }}">New Spreadsheet</a>
+      </div>
+
+      <section class="data-table-card manual-entry" aria-label="Manual data entry">
+        <div class="tracker-toolbar">
+          <div class="tracker-title">
+            <label for="spreadsheetName">Spreadsheet name</label>
+            <input
+              type="text"
+              id="spreadsheetName"
+              name="spreadsheet_name"
+              class="tracker-name"
+              value="My habit tracker"
+              placeholder="Enter a spreadsheet name"
+            />
+            <p id="trackerSize" role="status" aria-live="polite"></p>
+          </div>
+          <div class="tracker-actions">
+            <button type="button" class="secondary-button" id="addColumn">+ Add Column</button>
+            <button type="button" class="secondary-button" id="addRow">+ Add Row</button>
+            <button type="button" class="secondary-button" id="saveSpreadsheet">Save Spreadsheet</button>
+            <button type="button" class="secondary-button" id="downloadSpreadsheet">Download CSV</button>
+            <button type="button" class="primary-button" id="viewDashboard">View Dashboard</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table aria-label="Editable habit tracker">
+            <thead>
+              <tr id="trackerHeaders"><th scope="col" class="row-number">#</th></tr>
+            </thead>
+            <tbody id="trackerRows"></tbody>
+          </table>
+        </div>
+        <div class="tracker-footer">
+          Click any cell to edit. Use Tab to move between cells and Enter to move down a column.
+          Use Save Spreadsheet to keep your changes. Download CSV also saves your latest edits.
+          <p id="saveStatus" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="application/json" id="spreadsheetData">{{ spreadsheet | tojson }}</script>
+  <script>
+    const savedSpreadsheet = JSON.parse(document.getElementById('spreadsheetData').textContent);
+    const spreadsheetName = document.getElementById('spreadsheetName');
+    const saveStatus = document.getElementById('saveStatus');
+    const saveButton = document.getElementById('saveSpreadsheet');
+    const downloadButton = document.getElementById('downloadSpreadsheet');
+    const dashboardButton = document.getElementById('viewDashboard');
+    const dashboardNav = document.getElementById('dashboardNav');
+    const savedSelect = document.getElementById('savedSpreadsheets');
+    let saveUrl = savedSpreadsheet
+      ? {{ url_for('save_spreadsheet', spreadsheet_id=0, _method='PUT') | tojson }}.replace('/0', '/' + savedSpreadsheet.id)
+      : {{ url_for('save_spreadsheet', _method='POST') | tojson }};
+    let spreadsheetId = savedSpreadsheet ? savedSpreadsheet.id : null;
+    let revision = 0;
+    let savedRevision = 0;
+    const headers = document.getElementById('trackerHeaders');
+    const rows = document.getElementById('trackerRows');
+    const trackerSize = document.getElementById('trackerSize');
+    let columnCount = 0;
+
+    function columnLetter(index) {
+      let label = '';
+      for (let number = index + 1; number > 0; number = Math.floor((number - 1) / 26)) {
+        label = String.fromCharCode(65 + (number - 1) % 26) + label;
+      }
+      return label;
+    }
+
+    function updateSize() {
+      trackerSize.textContent = `${rows.rows.length} rows · ${columnCount} columns`;
+    }
+
+    function addCell(row, column) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.setAttribute('aria-label', `Row ${row.rowIndex}, column ${columnLetter(column)}`);
+      row.insertCell().appendChild(input);
+    }
+
+    function addColumn() {
+      const column = columnCount++;
+      const header = document.createElement('th');
+      header.scope = 'col';
+      const letter = document.createElement('span');
+      letter.className = 'column-letter';
+      letter.textContent = columnLetter(column);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = `Column ${column + 1}`;
+      input.setAttribute('aria-label', `Name for column ${columnLetter(column)}`);
+      header.append(letter, input);
+      headers.appendChild(header);
+      for (const row of rows.rows) addCell(row, column);
+      updateSize();
+      return input;
+    }
+
+    function addRow() {
+      const row = rows.insertRow();
+      const number = document.createElement('th');
+      number.scope = 'row';
+      number.className = 'row-number';
+      number.textContent = rows.rows.length;
+      row.appendChild(number);
+      for (let column = 0; column < columnCount; column++) addCell(row, column);
+      updateSize();
+      return row;
+    }
+
+    function markChanged() {
+      revision++;
+      saveStatus.dataset.error = 'false';
+      saveStatus.textContent = 'Unsaved changes';
+    }
+
+    document.querySelector('.manual-entry').addEventListener('input', markChanged);
+    document.getElementById('addColumn').addEventListener('click', () => {
+      addColumn().focus();
+      markChanged();
+    });
+    document.getElementById('addRow').addEventListener('click', () => {
+      addRow().querySelector('input').focus();
+      markChanged();
+    });
+
+    rows.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.isComposing || event.target.tagName !== 'INPUT') return;
+      event.preventDefault();
+      const cell = event.target.closest('td');
+      const row = cell.parentElement;
+      let nextRow = row.nextElementSibling;
+      if (!nextRow) {
+        nextRow = addRow();
+        markChanged();
+      }
+      nextRow.cells[cell.cellIndex].querySelector('input').focus();
+    });
+
+    if (savedSpreadsheet) {
+      spreadsheetName.value = savedSpreadsheet.name;
+      for (const name of savedSpreadsheet.columns) addColumn().value = name;
+      for (const values of savedSpreadsheet.rows) {
+        const row = addRow();
+        row.querySelectorAll('input').forEach((input, index) => input.value = values[index]);
+      }
+      saveStatus.textContent = 'Saved spreadsheet loaded.';
+    } else {
+      for (let column = 0; column < 3; column++) addColumn();
+      for (let row = 0; row < 5; row++) addRow();
+      saveStatus.textContent = 'New spreadsheet. Save when you are ready.';
+    }
+
+    async function saveSpreadsheet(download = false, openDashboard = false) {
+      if (!spreadsheetName.value.trim()) {
+        saveStatus.dataset.error = 'true';
+        saveStatus.textContent = 'Please enter a spreadsheet name.';
+        spreadsheetName.focus();
+        return;
+      }
+      const submittedRevision = revision;
+      const payload = {
+        name: spreadsheetName.value.trim(),
+        columns: Array.from(headers.querySelectorAll('input'), input => input.value.trim() || input.placeholder),
+        rows: Array.from(rows.rows, row => Array.from(row.querySelectorAll('input'), input => input.value))
+      };
+      saveButton.disabled = true;
+      downloadButton.disabled = true;
+      dashboardButton.disabled = true;
+      saveStatus.dataset.error = 'false';
+      saveStatus.textContent = 'Saving spreadsheet...';
+      try {
+        const response = await fetch(saveUrl, {
+          method: spreadsheetId === null ? 'POST' : 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || 'Unable to save. Please try again.');
+        }
+        const result = await response.json();
+        spreadsheetId = result.id;
+        saveUrl = result.save_url;
+        savedRevision = submittedRevision;
+        window.history.replaceState(null, '', result.url);
+        let option = Array.from(savedSelect.options).find(option => option.value === result.url);
+        if (!option) {
+          option = document.createElement('option');
+          option.value = result.url;
+          savedSelect.appendChild(option);
+        }
+        option.textContent = result.name;
+        savedSelect.value = result.url;
+        dashboardNav.href = result.dashboard_url;
+        saveStatus.textContent = revision === savedRevision
+          ? 'Spreadsheet saved.' : 'Spreadsheet saved. You have newer unsaved changes.';
+        if (download) window.location.assign(result.download_url);
+        if (openDashboard) window.location.assign(result.dashboard_url);
+      } catch (error) {
+        saveStatus.dataset.error = 'true';
+        saveStatus.textContent = error.message || 'Unable to save. Please try again.';
+      } finally {
+        saveButton.disabled = false;
+        downloadButton.disabled = false;
+        dashboardButton.disabled = false;
+      }
+    }
+
+    saveButton.addEventListener('click', () => saveSpreadsheet());
+    downloadButton.addEventListener('click', () => saveSpreadsheet(true));
+    dashboardButton.addEventListener('click', () => saveSpreadsheet(false, true));
+    savedSelect.addEventListener('change', () => {
+      if (savedSelect.value) window.location.assign(savedSelect.value);
+    });
+    window.addEventListener('beforeunload', (event) => {
+      if (revision !== savedRevision) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
+  </script>
+</body>
+</html>

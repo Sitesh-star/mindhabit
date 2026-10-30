@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div>
+      <div><h2>MindHabits</h2><p>Behavioral Analytics</p></div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item active"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">mood</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+
+  <div class="page">
+    <main>
+      <section class="hero home-hero">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1>Understand Your Habits.<span>Improve Your Well-Being.</span></h1>
+            <p>Explore patterns in your lifestyle and wellness data.</p>
+            <div class="hero-actions">
+              <a href="{{ url_for('upload') }}" class="primary-button">
+                Start Analysis
+                <span class="material-symbols-outlined">arrow_forward</span>
+              </a>
+              <a href="{{ url_for('manual') }}" class="secondary-button">
+                <span class="material-symbols-outlined">edit_note</span>
+                Enter Data Manually
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section home-how-it-works">
+        <div class="section-title">
+          <small>HOW IT WORKS</small>
+          <h2>Three Simple Steps</h2>
+          <p>Add your information and let MindHabits turn it into clear insights.</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-number">01</div>
+            <span class="material-symbols-outlined step-icon">upload_file</span>
+            <h3>Add Your Data</h3>
+            <p>Upload a CSV file or enter your information manually.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">02</div>
+            <span class="material-symbols-outlined step-icon">query_stats</span>
+            <h3>Analyse Your Patterns</h3>
+            <p>MindHabits examines your wellness and habit data to identify useful patterns.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">03</div>
+            <span class="material-symbols-outlined step-icon">lightbulb</span>
+            <h3>View Your Insights</h3>
+            <p>See well-being results, habit patterns and practical suggestions.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="disclaimer home-disclaimer">
+        <span class="material-symbols-outlined">health_and_safety</span>
+        <div>
+          <h3>Wellness Disclaimer</h3>
+          <p>MindHabits provides wellness insights for awareness and self-reflection. It does not provide medical diagnosis or replace professional healthcare advice.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

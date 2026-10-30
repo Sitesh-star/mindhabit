@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="static\css\style.css">
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Help & About - MindHabits</title>
+
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">
+          psychology
+        </span>
+      </div>
+
+      <div>
+        <h2>MindHabits</h2>
+        <p>Behavioral Analytics</p>
+      </div>
+
+    </div>
+
+    <nav class="nav-menu">
+
+      <a href="{{ url_for('home') }}" class="nav-item">
+        <span class="material-symbols-outlined">home</span>
+        <span>Home</span>
+      </a>
+
+      <a href="{{ url_for('upload') }}" class="nav-item">
+        <span class="material-symbols-outlined">upload_file</span>
+        <span>Upload Data</span>
+      </a>
+
+      <a href="{{ url_for('preview') }}" class="nav-item">
+        <span class="material-symbols-outlined">table_chart</span>
+        <span>Data Preview</span>
+      </a>
+
+      <a href="{{ url_for('dashboard') }}" class="nav-item">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+
+      <a href="{{ url_for('wellbeing') }}" class="nav-item">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>Mental Well-Being</span>
+      </a>
+
+      <a href="{{ url_for('habits') }}" class="nav-item">
+        <span class="material-symbols-outlined">insights</span>
+        <span>Habit Insights</span>
+      </a>
+
+      <a href="{{ url_for('export') }}" class="nav-item">
+        <span class="material-symbols-outlined">download</span>
+        <span>Export Results</span>
+      </a>
+
+      <a href="{{ url_for('help_page') }}" class="nav-item">
+        <span class="material-symbols-outlined">help</span>
+        <span>Help / About</span>
+      </a>
+
+    </nav>
+
+  </aside>
+
+
+  <!-- Main -->
+  <div class="page">
+
+    <main>
+
+      <!-- Heading -->
+      <section class="help-heading">
+
+        <div>
+
+          <small>SUPPORT & PROJECT INFORMATION</small>
+
+          <h1>Help / About</h1>
+
+          <p>
+            Learn how to use MindHabits and understand
+            the purpose and limitations of the system.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- About -->
+      <section class="about-card">
+
+        <div class="about-icon">
+
+          <span class="material-symbols-outlined">
+            psychology
+          </span>
+
+        </div>
+
+
+        <div>
+
+          <small>ABOUT MINDHABITS</small>
+
+          <h2>
+            Behavioral Analytics for Habit Formation
+            and Mental Well-Being
+          </h2>
+
+          <p>
+            MindHabits is a behavioral analytics web application
+            designed to help users explore patterns related to
+            lifestyle, activity, sleep, stress, mood and other
+            behavioral information.
+          </p>
+
+          <p>
+            The system uses data analysis and machine-learning
+            techniques to provide behavioral insights, mood
+            predictions and habit recommendations.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- How to Use -->
+      <section class="help-section">
+
+        <div class="help-section-heading">
+
+          <small>GETTING STARTED</small>
+
+          <h2>How to Use MindHabits</h2>
+
+          <p>
+            Follow these steps to complete an analysis.
+          </p>
+
+        </div>
+
+
+        <div class="help-steps">
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              1
+            </div>
+
+            <div>
+
+              <h3>Upload Your Dataset</h3>
+
+              <p>
+                Upload a CSV file containing behavioral,
+                lifestyle or physiological information.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              2
+            </div>
+
+            <div>
+
+              <h3>Review Your Data</h3>
+
+              <p>
+                Check the Data Preview page to confirm that
+                the uploaded records have been read correctly.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              3
+            </div>
+
+            <div>
+
+              <h3>Explore the Dashboard</h3>
+
+              <p>
+                Review summary statistics and behavioral
+                trends from the uploaded dataset.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              4
+            </div>
+
+            <div>
+
+              <h3>Review Mental Well-Being</h3>
+
+              <p>
+                View mood predictions, stress patterns and
+                important behavioral factors when supported
+                by the uploaded data.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              5
+            </div>
+
+            <div>
+
+              <h3>View Habit Insights</h3>
+
+              <p>
+                Review recommendations generated from
+                recurring behavioral patterns.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="help-step">
+
+            <div class="help-step-number">
+              6
+            </div>
+
+            <div>
+
+              <h3>Export Results</h3>
+
+              <p>
+                Download available processed data,
+                predictions and behavioral insights.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- Page Guide -->
+      <section class="help-section">
+
+        <div class="help-section-heading">
+
+          <small>WEBSITE GUIDE</small>
+
+          <h2>What Each Page Does</h2>
+
+        </div>
+
+
+        <div class="page-guide-grid">
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              upload_file
+            </span>
+
+            <h3>Upload Data</h3>
+
+            <p>
+              Import the CSV dataset that will be used
+              for behavioral analysis.
+            </p>
+
+          </div>
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              table_chart
+            </span>
+
+            <h3>Data Preview</h3>
+
+            <p>
+              Review uploaded records and basic
+              dataset information before analysis.
+            </p>
+
+          </div>
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              dashboard
+            </span>
+
+            <h3>Dashboard</h3>
+
+            <p>
+              Displays behavioral summaries, statistics
+              and trends from available data.
+            </p>
+
+          </div>
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              psychology
+            </span>
+
+            <h3>Mental Well-Being</h3>
+
+            <p>
+              Presents mood-related analysis and
+              machine-learning prediction results.
+            </p>
+
+          </div>
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              insights
+            </span>
+
+            <h3>Habit Insights</h3>
+
+            <p>
+              Provides practical behavioral recommendations
+              based on detected patterns.
+            </p>
+
+          </div>
+
+
+          <div class="page-guide-card">
+
+            <span class="material-symbols-outlined">
+              download
+            </span>
+
+            <h3>Export Results</h3>
+
+            <p>
+              Allows available analysis results to
+              be downloaded for later use.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- Dataset Help -->
+      <section class="dataset-help">
+
+        <div class="dataset-help-heading">
+
+          <div>
+
+            <h2>Dataset Information</h2>
+
+            <p>
+              MindHabits analyzes structured behavioral
+              data provided in CSV format.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="dataset-help-grid">
+
+
+          <div class="dataset-help-item">
+
+            <span class="material-symbols-outlined">
+              csv
+            </span>
+
+            <div>
+
+              <strong>CSV Format</strong>
+
+              <p>
+                Upload data using a standard
+                comma-separated values file.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="dataset-help-item">
+
+            <span class="material-symbols-outlined">
+              calendar_month
+            </span>
+
+            <div>
+
+              <strong>Daily Records</strong>
+
+              <p>
+                The system is designed mainly for
+                behavioral records collected over time.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="dataset-help-item">
+
+            <span class="material-symbols-outlined">
+              rule
+            </span>
+
+            <div>
+
+              <strong>Data Validation</strong>
+
+              <p>
+                Uploaded datasets will be checked before
+                being used for analysis.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="dataset-help-item">
+
+            <span class="material-symbols-outlined">
+              data_object
+            </span>
+
+            <div>
+
+              <strong>Available Features</strong>
+
+              <p>
+                Analysis results depend on the variables
+                available within the uploaded dataset.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- Important Limitation -->
+      <section class="help-warning">
+
+        <span class="material-symbols-outlined">
+          health_and_safety
+        </span>
+
+
+        <div>
+
+          <h3>
+            Important Wellness Disclaimer
+          </h3>
+
+          <p>
+            MindHabits is intended for behavioral analysis,
+            self-awareness and general wellness support.
+            Predictions and recommendations should not be
+            interpreted as medical diagnoses, treatment
+            decisions or professional healthcare advice.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- Project Information -->
+      <section class="project-about">
+
+        <div>
+
+          <small>
+            PROJECT INFORMATION
+          </small>
+
+          <h2>
+            Final Year Project
+          </h2>
+
+          <p>
+            MindHabits was developed as an academic project
+            exploring the use of machine learning and
+            behavioral analytics for habit formation and
+            mental well-being.
+          </p>
+
+        </div>
+
+
+        <div class="project-about-icon">
+
+          <span class="material-symbols-outlined">
+            school
+          </span>
+
+        </div>
+
+      </section>
+
+
+      <!-- Return -->
+      <section class="help-return">
+
+        <div>
+
+          <span class="material-symbols-outlined">
+            home
+          </span>
+
+
+          <div>
+
+            <h3>Ready to Begin?</h3>
+
+            <p>
+              Return to the homepage or upload a dataset
+              to start an analysis.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <a href="home.html" class="primary-button">
+
+          Return Home
+
+          <span class="material-symbols-outlined">
+            arrow_forward
+          </span>
+
+        </a>
+
+      </section>
+
+    </main>
+
+  </div>
+
+</body>
+</html>
