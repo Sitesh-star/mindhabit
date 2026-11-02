@@ -90,8 +90,18 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
       xhr.addEventListener("load", function () {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error("The dataset upload failed. Please try again."));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const payload = JSON.parse(xhr.responseText);
+            const blob = payload.blob || payload;
+            if (!blob.pathname || !blob.url) {
+              throw new Error("Missing canonical Blob metadata.");
+            }
+            resolve(blob);
+          } catch (error) {
+            reject(new Error("Blob uploaded, but its storage reference was unreadable."));
+          }
+        } else reject(new Error("The dataset upload failed. Please try again."));
       });
       xhr.addEventListener("error", function () {
         reject(new Error("The dataset upload failed. Check your connection and try again."));
@@ -127,14 +137,16 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prepared)
       });
-      await uploadDirectly(signed.uploadUrl, file);
+      const uploadedBlob = await uploadDirectly(signed.uploadUrl, file);
       uploadStatus.textContent = "Validating dataset...";
       const completed = await requestJson(uploadForm.dataset.completeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           storage: "blob",
-          pathname: prepared.pathname,
+          requested_pathname: prepared.pathname,
+          pathname: uploadedBlob.pathname,
+          url: uploadedBlob.url,
           filename: prepared.filename
         })
       });

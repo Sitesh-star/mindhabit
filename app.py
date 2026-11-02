@@ -18,7 +18,7 @@ from utils.dashboard_analyzer import (
 from utils.dataset_storage import (
     DatasetStorageError, InvalidDatasetError, blob_storage_enabled,
     create_dataset_path, dataset_filename, dataset_identity, load_dataset,
-    make_blob_reference, save_local_upload,
+    make_blob_reference, save_local_upload, validate_blob_reference,
 )
 from utils.database import Database, DatabaseError
 
@@ -243,16 +243,30 @@ def prepare_blob_upload():
 def complete_blob_upload():
     payload = request.get_json(silent=True) or {}
     pending = session.pop("pending_dataset_upload", None)
+    requested_pathname = payload.get("requested_pathname")
+    canonical_pathname = payload.get("pathname")
+    canonical_url = payload.get("url")
+    expected_folder = f"{pending['pathname'].rsplit('/', 1)[0]}/" if pending else None
     if (
         not pending
         or payload.get("storage") != "blob"
-        or payload.get("pathname") != pending.get("pathname")
+        or requested_pathname != pending.get("pathname")
+        or not isinstance(canonical_pathname, str)
+        or not canonical_pathname.startswith(expected_folder)
         or payload.get("filename") != pending.get("filename")
     ):
         return jsonify(error="The upload authorization is missing or expired."), 400
-    session["dataset_reference"] = make_blob_reference(
-        pending["pathname"], pending["filename"]
+    reference = make_blob_reference(
+        canonical_pathname, pending["filename"], canonical_url
     )
+    app.logger.info("Received canonical uploaded Blob pathname: %s", canonical_pathname)
+    try:
+        validate_blob_reference(reference)
+    except DatasetStorageError:
+        app.logger.warning("Uploaded Blob reference could not be verified.", exc_info=True)
+        return jsonify(error="The uploaded dataset could not be verified. Please try again."), 400
+    app.logger.info("Storing canonical Blob pathname in session: %s", canonical_pathname)
+    session["dataset_reference"] = reference
     session.pop("current_spreadsheet_id", None)
     _reset_analysis_results()
     return jsonify(preview_url=url_for("preview"))

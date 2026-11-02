@@ -2,8 +2,10 @@
 
 import asyncio
 from io import BytesIO
+import logging
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 import pandas as pd
@@ -11,6 +13,7 @@ from werkzeug.utils import secure_filename
 
 
 MAX_DATASET_BYTES = 25 * 1024 * 1024
+LOGGER = logging.getLogger(__name__)
 
 
 class DatasetStorageError(Exception):
@@ -36,12 +39,41 @@ def create_dataset_path(filename):
     return f"datasets/{uuid4()}/{safe_name}"
 
 
-def make_blob_reference(pathname, filename):
-    return {
+def make_blob_reference(pathname, filename, url=None):
+    reference = {
         "storage": "blob",
         "pathname": pathname,
         "filename": secure_filename(filename or "dataset.csv") or "dataset.csv",
     }
+    if url:
+        reference["url"] = url
+    return reference
+
+
+def validate_blob_reference(reference):
+    """Verify canonical private Blob metadata without downloading the CSV."""
+    pathname = (reference or {}).get("pathname")
+    url = (reference or {}).get("url")
+    if not pathname or not url:
+        raise DatasetStorageError("The uploaded Blob reference is incomplete.")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(
+        ".private.blob.vercel-storage.com"
+    ):
+        raise DatasetStorageError("The uploaded Blob reference is not private storage.")
+    if unquote(parsed.path.lstrip("/")) != pathname:
+        raise DatasetStorageError("The uploaded Blob pathname does not match its URL.")
+    try:
+        from vercel.blob import BlobNotFoundError, head_blob
+        metadata = asyncio.run(head_blob(url))
+    except BlobNotFoundError as error:
+        raise DatasetNotFoundError("The uploaded dataset could not be found.") from error
+    except Exception as error:
+        raise DatasetStorageError("The uploaded dataset could not be verified.") from error
+    if metadata.pathname != pathname:
+        raise DatasetStorageError("Vercel Blob returned different dataset metadata.")
+    LOGGER.info("Verified uploaded Blob pathname: %s", metadata.pathname)
+    return reference
 
 
 def save_local_upload(file_storage, upload_folder):
@@ -86,6 +118,7 @@ def _read_blob_bytes(pathname):
         raise DatasetStorageError("Vercel Blob support is not installed.") from error
 
     try:
+        LOGGER.info("Loading Blob dataset reference: %s", pathname)
         result = asyncio.run(get_blob(pathname, access="private"))
         return result.body
     except BlobNotFoundError as error:
@@ -113,7 +146,7 @@ def load_dataset(reference, upload_folder="uploads"):
 
     storage = reference.get("storage")
     if storage == "blob":
-        content = _read_blob_bytes(reference["pathname"])
+        content = _read_blob_bytes(reference.get("url") or reference["pathname"])
     elif storage == "local":
         content = _read_local_bytes(reference, upload_folder)
     else:

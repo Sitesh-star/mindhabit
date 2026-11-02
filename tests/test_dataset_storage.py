@@ -2,6 +2,7 @@ import io
 import os
 import tempfile
 import unittest
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 from werkzeug.datastructures import FileStorage
@@ -10,9 +11,11 @@ import app as mindhabits
 from utils.dataset_storage import (
     DatasetNotFoundError,
     InvalidDatasetError,
+    DatasetStorageError,
     create_dataset_path,
     load_dataset,
     save_local_upload,
+    validate_blob_reference,
 )
 
 
@@ -53,6 +56,56 @@ class DatasetStorageTests(unittest.TestCase):
 
     def test_application_has_no_uploaded_file_path_global(self):
         self.assertFalse(hasattr(mindhabits, "uploaded_file_path"))
+
+    def test_blob_loader_uses_exact_canonical_url(self):
+        reference = {
+            "storage": "blob",
+            "pathname": "datasets/id/data-canonical.csv",
+            "url": (
+                "https://store.private.blob.vercel-storage.com/"
+                "datasets/id/data-canonical.csv"
+            ),
+            "filename": "data.csv",
+        }
+        with patch(
+            "utils.dataset_storage._read_blob_bytes",
+            return_value=b"sleep,mood\n7,good\n",
+        ) as reader:
+            frame = load_dataset(reference, self.directory.name)
+        reader.assert_called_once_with(reference["url"])
+        self.assertEqual(frame.shape, (1, 2))
+
+    def test_blob_reference_rejects_url_path_mismatch(self):
+        reference = {
+            "storage": "blob",
+            "pathname": "datasets/id/expected.csv",
+            "url": (
+                "https://store.private.blob.vercel-storage.com/"
+                "datasets/id/different.csv"
+            ),
+            "filename": "expected.csv",
+        }
+        with self.assertRaises(DatasetStorageError):
+            validate_blob_reference(reference)
+
+    def test_blob_reference_reports_404(self):
+        from vercel.blob import BlobNotFoundError
+
+        reference = {
+            "storage": "blob",
+            "pathname": "datasets/id/missing.csv",
+            "url": (
+                "https://store.private.blob.vercel-storage.com/"
+                "datasets/id/missing.csv"
+            ),
+            "filename": "missing.csv",
+        }
+        with patch(
+            "vercel.blob.head_blob",
+            new=AsyncMock(side_effect=BlobNotFoundError("missing")),
+        ):
+            with self.assertRaises(DatasetNotFoundError):
+                validate_blob_reference(reference)
 
 
 if __name__ == "__main__":

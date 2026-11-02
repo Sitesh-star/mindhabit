@@ -86,17 +86,28 @@ class UploadPageTests(unittest.TestCase):
             metadata = prepared.get_json()
             self.assertNotIn("file", metadata)
             self.assertNotIn("data", metadata)
-            completed = self.client.post("/upload/complete", json={
-                "storage": "blob",
-                "pathname": metadata["pathname"],
-                "filename": metadata["filename"],
-            })
+            canonical_pathname = metadata["pathname"].replace(
+                ".csv", "-canonical.csv"
+            )
+            canonical_url = (
+                "https://store.private.blob.vercel-storage.com/"
+                f"{canonical_pathname}"
+            )
+            with patch("app.validate_blob_reference", side_effect=lambda value: value):
+                completed = self.client.post("/upload/complete", json={
+                    "storage": "blob",
+                    "requested_pathname": metadata["pathname"],
+                    "pathname": canonical_pathname,
+                    "url": canonical_url,
+                    "filename": metadata["filename"],
+                })
 
         self.assertEqual(completed.status_code, 200)
         with self.client.session_transaction() as browser_session:
             reference = browser_session["dataset_reference"]
         self.assertEqual(reference["storage"], "blob")
-        self.assertEqual(reference["pathname"], metadata["pathname"])
+        self.assertEqual(reference["pathname"], canonical_pathname)
+        self.assertEqual(reference["url"], canonical_url)
         self.assertEqual(reference["filename"], "wellness_data.csv")
 
 
