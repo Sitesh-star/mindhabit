@@ -2,6 +2,7 @@ import io
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -75,7 +76,7 @@ class DatasetStorageTests(unittest.TestCase):
         reader.assert_called_once_with(reference["url"])
         self.assertEqual(frame.shape, (1, 2))
 
-    def test_blob_reference_rejects_url_path_mismatch(self):
+    def test_valid_canonical_reference_does_not_compare_url_path_text(self):
         reference = {
             "storage": "blob",
             "pathname": "datasets/id/expected.csv",
@@ -85,8 +86,28 @@ class DatasetStorageTests(unittest.TestCase):
             ),
             "filename": "expected.csv",
         }
-        with self.assertRaises(DatasetStorageError):
-            validate_blob_reference(reference)
+        metadata = SimpleNamespace(pathname="server-canonical-value.csv")
+        with patch("vercel.blob.head_blob", new=AsyncMock(return_value=metadata)):
+            self.assertIs(validate_blob_reference(reference), reference)
+
+    def test_blob_reference_rejects_malformed_pathname_and_url(self):
+        valid = {
+            "storage": "blob",
+            "pathname": "datasets/id/data.csv",
+            "url": "https://store.private.blob.vercel-storage.com/data.csv",
+            "filename": "data.csv",
+        }
+        for changes in [
+            {"pathname": "other/id/data.csv"},
+            {"pathname": "datasets/../data.csv"},
+            {"url": "http://store.private.blob.vercel-storage.com/data.csv"},
+            {"url": "https://example.com/data.csv"},
+            {"filename": "../data.csv"},
+        ]:
+            with self.subTest(changes=changes):
+                reference = {**valid, **changes}
+                with self.assertRaises(DatasetStorageError):
+                    validate_blob_reference(reference)
 
     def test_blob_reference_reports_404(self):
         from vercel.blob import BlobNotFoundError

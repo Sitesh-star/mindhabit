@@ -5,7 +5,7 @@ from io import BytesIO
 import logging
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import pandas as pd
@@ -52,27 +52,46 @@ def make_blob_reference(pathname, filename, url=None):
 
 def validate_blob_reference(reference):
     """Verify canonical private Blob metadata without downloading the CSV."""
-    pathname = (reference or {}).get("pathname")
-    url = (reference or {}).get("url")
-    if not pathname or not url:
-        raise DatasetStorageError("The uploaded Blob reference is incomplete.")
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(
-        ".private.blob.vercel-storage.com"
+    if not isinstance(reference, dict) or reference.get("storage") != "blob":
+        raise DatasetStorageError("The uploaded dataset is not a Blob reference.")
+    pathname = reference.get("pathname")
+    url = reference.get("url")
+    filename = reference.get("filename")
+    if not isinstance(pathname, str) or not pathname.startswith("datasets/"):
+        raise DatasetStorageError("The uploaded Blob pathname is invalid.")
+    if ".." in pathname.split("/") or pathname.endswith("/"):
+        raise DatasetStorageError("The uploaded Blob pathname is invalid.")
+    if (
+        not isinstance(filename, str)
+        or not filename.lower().endswith(".csv")
+        or secure_filename(filename) != filename
     ):
-        raise DatasetStorageError("The uploaded Blob reference is not private storage.")
-    if unquote(parsed.path.lstrip("/")) != pathname:
-        raise DatasetStorageError("The uploaded Blob pathname does not match its URL.")
+        raise DatasetStorageError("The uploaded dataset filename is invalid.")
+    if url is not None and not isinstance(url, str):
+        raise DatasetStorageError("The uploaded Blob reference is incomplete.")
+    target = pathname
+    if url:
+        parsed = urlparse(url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or not parsed.hostname.endswith(".private.blob.vercel-storage.com")
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise DatasetStorageError("The uploaded Blob reference is not private storage.")
+        target = url
+        LOGGER.info("Canonical uploaded Blob URL host: %s", parsed.hostname)
     try:
         from vercel.blob import BlobNotFoundError, head_blob
-        metadata = asyncio.run(head_blob(url))
+        metadata = asyncio.run(head_blob(target))
     except BlobNotFoundError as error:
         raise DatasetNotFoundError("The uploaded dataset could not be found.") from error
     except Exception as error:
         raise DatasetStorageError("The uploaded dataset could not be verified.") from error
-    if metadata.pathname != pathname:
-        raise DatasetStorageError("Vercel Blob returned different dataset metadata.")
-    LOGGER.info("Verified uploaded Blob pathname: %s", metadata.pathname)
+    LOGGER.info("Verified canonical uploaded Blob pathname: %s", pathname)
     return reference
 
 
@@ -118,7 +137,11 @@ def _read_blob_bytes(pathname):
         raise DatasetStorageError("Vercel Blob support is not installed.") from error
 
     try:
-        LOGGER.info("Loading Blob dataset reference: %s", pathname)
+        parsed = urlparse(pathname)
+        if parsed.scheme == "https":
+            LOGGER.info("Loading Blob dataset using canonical URL host: %s", parsed.hostname)
+        else:
+            LOGGER.info("Loading Blob dataset pathname: %s", pathname)
         result = asyncio.run(get_blob(pathname, access="private"))
         return result.body
     except BlobNotFoundError as error:
