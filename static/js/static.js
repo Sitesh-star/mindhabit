@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const continueButton = document.getElementById("continueButton");
   const uploadForm = document.getElementById("uploadForm");
   let uploadStatus = document.getElementById("uploadStatus");
+  let directUploadRunning = false;
 
   if (!fileInput || !dropZone || !selectedFile || !continueButton) {
     return;
@@ -99,9 +100,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  uploadForm.addEventListener("submit", async function (event) {
-    if (uploadForm.dataset.blobUpload !== "true") return;
-    event.preventDefault();
+  async function startDirectUpload() {
+    if (uploadForm.dataset.blobUpload !== "true" || directUploadRunning) return;
     const file = fileInput.files[0];
     if (!isCsvFile(file)) return;
     if (!uploadStatus) {
@@ -109,13 +109,18 @@ document.addEventListener("DOMContentLoaded", function () {
       uploadStatus.className = "upload-status";
       selectedFile.insertAdjacentElement("afterend", uploadStatus);
     }
+    directUploadRunning = true;
     continueButton.disabled = true;
     try {
       uploadStatus.textContent = "Preparing secure upload...";
       const prepared = await requestJson(uploadForm.dataset.prepareUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, size: file.size })
+        body: JSON.stringify({
+          filename: file.name,
+          size: file.size,
+          content_type: file.type || "text/csv"
+        })
       });
       const signed = await requestJson("/api/blob-upload-url", {
         method: "POST",
@@ -127,15 +132,28 @@ document.addEventListener("DOMContentLoaded", function () {
       const completed = await requestJson(uploadForm.dataset.completeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pathname: prepared.pathname })
+        body: JSON.stringify({
+          storage: "blob",
+          pathname: prepared.pathname,
+          filename: prepared.filename
+        })
       });
       window.location.assign(completed.preview_url);
     } catch (error) {
       uploadStatus.textContent = error.message;
       uploadStatus.classList.add("upload-status-error");
+      directUploadRunning = false;
       continueButton.disabled = false;
     }
-  });
+  }
+
+  if (uploadForm.dataset.blobUpload === "true") {
+    uploadForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      startDirectUpload();
+    });
+    continueButton.addEventListener("click", startDirectUpload);
+  }
 
   showSelectedFile(fileInput.files[0]);
 });

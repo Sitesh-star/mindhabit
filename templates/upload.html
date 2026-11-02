@@ -36,12 +36,13 @@
 
       <section class="upload-layout compact-upload-layout">
         <div class="upload-card compact-upload-card">
-          <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm"
+          <form id="uploadForm"
+                {% if not blob_upload_enabled %}action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data"{% endif %}
                 data-blob-upload="{{ 'true' if blob_upload_enabled else 'false' }}"
                 data-prepare-url="{{ url_for('prepare_blob_upload') }}"
                 data-complete-url="{{ url_for('complete_blob_upload') }}">
             <label class="upload-box compact-upload-box" id="dropZone" for="csvFile" tabindex="0">
-              <input type="file" id="csvFile" name="file" accept=".csv,text/csv" required>
+              <input type="file" id="csvFile" {% if not blob_upload_enabled %}name="file"{% endif %} accept=".csv,text/csv" required>
               <span class="material-symbols-outlined">cloud_upload</span>
               <strong>Drop CSV file here</strong>
               <span>or click to browse</span>
@@ -59,7 +60,7 @@
 
             <p class="upload-format-note">Accepted format: CSV <span aria-hidden="true">&middot;</span> One dataset at a time</p>
 
-            <button type="submit" class="continue-button" id="continueButton" disabled>
+            <button type="{{ 'button' if blob_upload_enabled else 'submit' }}" class="continue-button" id="continueButton" disabled>
               Validate &amp; Continue
               <span class="material-symbols-outlined">arrow_forward</span>
             </button>

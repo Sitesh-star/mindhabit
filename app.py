@@ -71,6 +71,11 @@ def _dataset_load_failed():
     return redirect(url_for("upload", error="The dataset could not be loaded. Please upload it again."))
 
 
+def _direct_blob_upload_enabled():
+    """Production must never fall back to sending dataset bytes through Flask."""
+    return bool(os.environ.get("VERCEL")) or blob_storage_enabled()
+
+
 def _reset_analysis_results():
     # Results are keyed by dataset, so a new dataset automatically starts clean.
     return None
@@ -189,7 +194,7 @@ def download_spreadsheet(spreadsheet_id):
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
-        if blob_storage_enabled():
+        if _direct_blob_upload_enabled():
             return render_template("upload.html", blob_upload_enabled=True,
                 upload_error="Use the secure direct upload to upload this dataset."), 400
         try:
@@ -204,7 +209,7 @@ def upload():
         _reset_analysis_results()
         return redirect(url_for("preview"))
 
-    return render_template("upload.html", blob_upload_enabled=blob_storage_enabled(),
+    return render_template("upload.html", blob_upload_enabled=_direct_blob_upload_enabled(),
                            upload_error=request.args.get("error"))
 
 
@@ -215,7 +220,10 @@ def prepare_blob_upload():
     payload = request.get_json(silent=True) or {}
     filename = secure_filename(str(payload.get("filename", "")))
     size = payload.get("size")
+    content_type = payload.get("content_type")
     if not filename.lower().endswith(".csv") or not isinstance(size, int):
+        return jsonify(error="Please choose a valid CSV file."), 400
+    if content_type not in {"text/csv", "application/csv", "application/vnd.ms-excel"}:
         return jsonify(error="Please choose a valid CSV file."), 400
     if size <= 0 or size > 25 * 1024 * 1024:
         return jsonify(error="The CSV must be non-empty and no larger than 25 MB."), 400
@@ -225,14 +233,22 @@ def prepare_blob_upload():
     if isinstance(secret, str):
         secret = secret.encode()
     claim = hmac.new(secret, f"{pathname}:{size}".encode(), hashlib.sha256).hexdigest()
-    return jsonify(pathname=pathname, size=size, claim=claim)
+    return jsonify(
+        pathname=pathname, filename=filename, size=size,
+        contentType="text/csv", claim=claim
+    )
 
 
 @app.route("/upload/complete", methods=["POST"])
 def complete_blob_upload():
     payload = request.get_json(silent=True) or {}
     pending = session.pop("pending_dataset_upload", None)
-    if not pending or payload.get("pathname") != pending.get("pathname"):
+    if (
+        not pending
+        or payload.get("storage") != "blob"
+        or payload.get("pathname") != pending.get("pathname")
+        or payload.get("filename") != pending.get("filename")
+    ):
         return jsonify(error="The upload authorization is missing or expired."), 400
     session["dataset_reference"] = make_blob_reference(
         pending["pathname"], pending["filename"]
