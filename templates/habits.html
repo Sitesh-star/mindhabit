@@ -128,13 +128,13 @@
       {% if habit_result and habit_result.insights %}
       <section class="habit-next">
         <div>
-          <span class="material-symbols-outlined">psychology</span>
+          <span class="material-symbols-outlined">download</span>
           <div>
-            <h3>Review Your Current Result</h3>
-            <p>Use Mental Well-Being to see what the latest analysed record suggests.</p>
+            <h3>Ready to Save Your Results?</h3>
+            <p>Download your complete MindHabits report with your well-being result, habit insights, graphs, and recommendations.</p>
           </div>
         </div>
-        <a href="{{ url_for('wellbeing') }}" class="primary-button">Mental Well-Being<span class="material-symbols-outlined">arrow_forward</span></a>
+        <a href="{{ url_for('export') }}" class="primary-button">Export Results<span class="material-symbols-outlined">arrow_forward</span></a>
       </section>
       {% endif %}
     </main>
