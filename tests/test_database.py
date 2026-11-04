@@ -7,10 +7,52 @@ import unittest
 import numpy as np
 
 import app as mindhabits
-from utils.database import Database, json_safe
+from utils.database import Database, DatabaseError, json_safe, resolve_database_url
 
 
 class PersistenceTests(unittest.TestCase):
+    def test_valid_database_url_is_preferred(self):
+        url, source = resolve_database_url(
+            {
+                "DATABASE_URL": "postgresql://primary.example/mindhabits",
+                "DATABASES_POSTGRES_URL": "postgresql://neon.example/mindhabits",
+            },
+            "local.sqlite3",
+            production=True,
+        )
+        self.assertEqual(url, "postgresql://primary.example/mindhabits")
+        self.assertEqual(source, "postgresql")
+
+    def test_neon_url_is_used_when_database_url_is_missing(self):
+        url, source = resolve_database_url(
+            {"DATABASES_POSTGRES_URL": "postgres://neon.example/mindhabits"},
+            "local.sqlite3",
+            production=True,
+        )
+        self.assertEqual(url, "postgres://neon.example/mindhabits")
+        self.assertEqual(source, "neon")
+
+    def test_neon_url_replaces_invalid_database_url_placeholder(self):
+        url, source = resolve_database_url(
+            {
+                "DATABASE_URL": "DATABASES_POSTGRES_URL",
+                "DATABASES_POSTGRES_URL": "postgresql://neon.example/mindhabits",
+            },
+            "local.sqlite3",
+            production=True,
+        )
+        self.assertEqual(url, "postgresql://neon.example/mindhabits")
+        self.assertEqual(source, "neon")
+
+    def test_sqlite_is_the_development_fallback(self):
+        url, source = resolve_database_url({}, "local.sqlite3", production=False)
+        self.assertEqual(url, "sqlite:///local.sqlite3")
+        self.assertEqual(source, "sqlite")
+
+    def test_missing_production_database_configuration_is_rejected(self):
+        with self.assertRaises(DatabaseError):
+            resolve_database_url({}, "local.sqlite3", production=True)
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

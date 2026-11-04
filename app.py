@@ -20,20 +20,26 @@ from utils.dataset_storage import (
     create_dataset_path, dataset_filename, dataset_identity, load_dataset,
     make_blob_reference, save_local_upload, validate_blob_reference,
 )
-from utils.database import Database, DatabaseError
+from utils.database import Database, DatabaseError, resolve_database_url
 
 
 app = Flask(__name__)
 app.config["DATABASE"] = os.path.join(app.instance_path, "mindhabits.sqlite3")
-app.config["DATABASE_URL"] = os.environ.get("DATABASE_URL")
+app.config["DATABASE_URL"], database_source = resolve_database_url(
+    os.environ,
+    app.config["DATABASE"],
+    production=bool(os.environ.get("VERCEL")),
+)
 app.config["UPLOAD_FOLDER"] = os.path.join(app.root_path, "uploads")
 if os.environ.get("VERCEL") and not os.environ.get("SECRET_KEY"):
     raise RuntimeError("SECRET_KEY must be configured for production.")
-if os.environ.get("VERCEL") and not os.environ.get("DATABASE_URL"):
-    raise RuntimeError("DATABASE_URL must be configured for production.")
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("VERCEL"))
+if database_source == "neon":
+    app.logger.info("Using PostgreSQL database from Neon environment configuration.")
+elif database_source == "postgresql":
+    app.logger.info("Using PostgreSQL database from DATABASE_URL configuration.")
 
 
 

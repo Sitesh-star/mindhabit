@@ -12,6 +12,24 @@ class DatabaseError(Exception):
     """Persistent storage is unavailable or contains invalid data."""
 
 
+def resolve_database_url(environment, sqlite_path, production=False):
+    """Select a supported database URL without exposing connection details."""
+    primary_url = (environment.get("DATABASE_URL") or "").strip()
+    neon_url = (environment.get("DATABASES_POSTGRES_URL") or "").strip()
+
+    if primary_url.startswith(("postgres://", "postgresql://")):
+        return primary_url, "postgresql"
+    if not production and primary_url.startswith("sqlite:///"):
+        return primary_url, "sqlite"
+    if neon_url.startswith(("postgres://", "postgresql://")):
+        return neon_url, "neon"
+    if production:
+        raise DatabaseError(
+            "A valid PostgreSQL DATABASE_URL or DATABASES_POSTGRES_URL is required."
+        )
+    return f"sqlite:///{sqlite_path}", "sqlite"
+
+
 def json_safe(value):
     """Convert analysis output, including NumPy/pandas scalars, to JSON values."""
     if value is None or isinstance(value, (str, bool, int)):
