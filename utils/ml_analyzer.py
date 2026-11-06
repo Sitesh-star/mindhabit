@@ -311,6 +311,7 @@ def _extract_contributing_factors(pipeline, categorical_columns, limit=5):
 
         candidates = {1: [], 2: [], 3: []}
         used_columns = set()
+        used_labels = set()
         for index in np.argsort(np.nan_to_num(importance, nan=0.0))[::-1]:
             value = float(importance[index])
             if value <= 0:
@@ -329,6 +330,10 @@ def _extract_contributing_factors(pipeline, categorical_columns, limit=5):
                 display_name = (
                     f"{display_name}: {_friendly_class_label(category)}"
                 )
+            label_key = display_name.casefold()
+            if label_key in used_labels:
+                continue
+            used_labels.add(label_key)
             candidates[profile["tier"]].append({
                 "name": display_name,
                 "column": source_column,

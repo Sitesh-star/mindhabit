@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title }} - MindHabits</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-icon"><span class="material-symbols-outlined">psychology</span></div><div><h2>MindHabits</h2><p>Behavioral Analytics</p></div></div>
+    <nav class="nav-menu">
+      <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+      <a href="{{ url_for('upload') }}" class="nav-item{% if active_page == 'upload' %} active{% endif %}"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
+      <a href="{{ url_for('preview') }}" class="nav-item{% if active_page == 'preview' %} active{% endif %}"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item{% if active_page == 'dashboard' %} active{% endif %}"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('wellbeing') }}" class="nav-item{% if active_page == 'wellbeing' %} active{% endif %}"><span class="material-symbols-outlined">psychology</span><span>Mental Well-Being</span></a>
+      <a href="{{ url_for('habits') }}" class="nav-item{% if active_page == 'habits' %} active{% endif %}"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
+      <a href="{{ url_for('export') }}" class="nav-item{% if active_page == 'export' %} active{% endif %}"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
+      <a href="{{ url_for('help_page') }}" class="nav-item"><span class="material-symbols-outlined">help</span><span>Help / About</span></a>
+    </nav>
+  </aside>
+  <div class="page"><main>
+    <section class="page-heading"><small>GET STARTED</small><h1>{{ page_title }}</h1></section>
+    <section class="habit-empty-state habit-no-dataset">
+      <span class="material-symbols-outlined">dataset</span>
+      <div>
+        <h2>No data available yet</h2>
+        <p>{{ message }}</p>
+        <div class="empty-dataset-actions">
+          <a href="{{ url_for('upload') }}" class="primary-button">Upload CSV<span class="material-symbols-outlined">upload_file</span></a>
+          <a href="{{ url_for('manual') }}" class="secondary-button">Enter Data Manually<span class="material-symbols-outlined">edit_note</span></a>
+        </div>
+      </div>
+    </section>
+  </main></div>
+</body>
+</html>

@@ -11,9 +11,20 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+  function fileValidationError(file) {
+    if (!file) return null;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      return "Invalid file format. Please choose a CSV file.";
+    }
+    if (file.size <= 0) return "The selected CSV file is empty.";
+    if (file.size > 25 * 1024 * 1024) {
+      return "File is too large. Please choose a CSV file smaller than 25 MB.";
+    }
+    return null;
+  }
+
   function isCsvFile(file) {
-    return Boolean(file && file.name.toLowerCase().endsWith(".csv") &&
-      file.size > 0 && file.size <= 25 * 1024 * 1024);
+    return Boolean(file && !fileValidationError(file));
   }
 
   function showSelectedFile(file) {
@@ -27,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (valid) {
       selectedFile.textContent = `Selected file: ${file.name}`;
     } else {
-      selectedFile.textContent = `Invalid file: ${file.name}. Choose a non-empty CSV no larger than 25 MB.`;
+      selectedFile.textContent = fileValidationError(file);
     }
   }
 

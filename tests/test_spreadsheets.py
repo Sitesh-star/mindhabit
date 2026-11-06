@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import app as mindhabits
@@ -78,6 +79,39 @@ class SpreadsheetTests(unittest.TestCase):
         self.assertEqual(other_visitor.get(saved["url"]).status_code, 404)
         self.assertNotIn(b"My weekly tracker", other_visitor.get("/manual").data)
 
+    def test_duplicate_names_are_rejected_per_visitor(self):
+        self.save()
+        duplicate = self.client.post(
+            "/api/spreadsheets", json={**self.payload, "name": "  MY WEEKLY TRACKER  "}
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertIn(b"already exists", duplicate.data)
+        other_visitor = mindhabits.app.test_client()
+        self.assertEqual(
+            other_visitor.post("/api/spreadsheets", json=self.payload).status_code, 201
+        )
+
+    def test_delete_spreadsheet_is_owned_and_clears_active_dataset(self):
+        saved = self.save()
+        other_visitor = mindhabits.app.test_client()
+        self.assertEqual(
+            other_visitor.post(f"/manual/{saved['id']}/delete").status_code, 404
+        )
+        deleted = self.client.post(f"/manual/{saved['id']}/delete")
+        self.assertEqual(deleted.status_code, 302)
+        self.assertTrue(deleted.location.endswith("/manual"))
+        self.assertEqual(self.client.get(saved["url"]).status_code, 404)
+        with self.client.session_transaction() as browser_session:
+            self.assertNotIn("active_dataset", browser_session)
+
+    def test_manual_placeholder_opens_safe_new_spreadsheet_state(self):
+        saved = self.save()
+        page = self.client.get(saved["url"]).get_data(as_text=True)
+        self.assertIn('<option value="/manual">Choose a spreadsheet</option>', page)
+        empty_editor = self.client.get("/manual").get_data(as_text=True)
+        self.assertIn("New spreadsheet. Save when you are ready.", empty_editor)
+        self.assertNotIn('value="My weekly tracker"', empty_editor)
+
     def test_download_preserves_csv_values_and_unicode(self):
         self.payload["name"] = "Tracker / safe filename"
         self.payload["rows"][1][2] = "Mindfulness \u2713"
@@ -130,8 +164,8 @@ class SpreadsheetTests(unittest.TestCase):
         for route in ["/", "/upload", "/manual", "/habits", "/export", "/help"]:
             self.assertEqual(self.client.get(route).status_code, 200, route)
         no_data = self.client.get("/wellbeing")
-        self.assertEqual(no_data.status_code, 302)
-        self.assertTrue(no_data.location.endswith("/upload"))
+        self.assertEqual(no_data.status_code, 200)
+        self.assertIn(b"No data available yet", no_data.data)
         previous_directory = os.getcwd()
         try:
             os.chdir(self.directory.name)
@@ -145,6 +179,72 @@ class SpreadsheetTests(unittest.TestCase):
             self.assertEqual(self.client.get("/wellbeing").status_code, 200)
         finally:
             os.chdir(previous_directory)
+
+    def test_all_analysis_pages_use_the_same_active_manual_dataset(self):
+        csv_path = os.path.join(self.directory.name, "old.csv")
+        Path(csv_path).write_text("sleep_hours,mood\n5,Low\n", encoding="utf-8")
+        self.select_dataset(csv_path)
+        self.assertIn(b"old.csv", self.client.get("/preview").data)
+
+        self.payload = {
+            "name": "Manual wellness tracker",
+            "columns": ["Sleep Hours", "Mood"],
+            "rows": [[str(6 + index % 3), "Good" if index % 2 else "Low"] for index in range(24)],
+        }
+        saved = self.save()
+        for route in ["/preview", "/dashboard", "/wellbeing", "/habits", "/export"]:
+            response = self.client.get(route)
+            self.assertEqual(response.status_code, 200, route)
+            self.assertNotIn(b"old.csv", response.data, route)
+        self.assertIn(b"Manual wellness tracker", self.client.get("/preview").data)
+        self.assertIn(b"Manual wellness tracker", self.client.get("/dashboard").data)
+        with self.client.session_transaction() as browser_session:
+            self.assertEqual(
+                browser_session["active_dataset"],
+                {"source": "manual", "spreadsheet_id": saved["id"]},
+            )
+
+        with patch("app._direct_blob_upload_enabled", return_value=False):
+            switched = self.client.post(
+                "/upload",
+                data={"file": (io.BytesIO(b"sleep_hours,mood\n8,Great\n"), "new.csv")},
+                content_type="multipart/form-data",
+            )
+        self.assertEqual(switched.status_code, 302)
+        self.assertIn(b"new.csv", self.client.get("/preview").data)
+        self.assertNotIn(b"Manual wellness tracker", self.client.get("/dashboard").data)
+        with self.client.session_transaction() as browser_session:
+            self.assertEqual(browser_session["active_dataset"]["source"], "blob")
+
+    def test_editing_manual_data_changes_identity_and_hides_stale_analysis(self):
+        with self.client:
+            saved = self.save()
+            first_identity = mindhabits._dataset_identity()
+            with self.client.session_transaction() as browser_session:
+                visitor_id = browser_session["visitor_id"]
+        mindhabits._database().save_analysis_result(
+            visitor_id, first_identity, "wellbeing", {"outcome_display_name": "Old Result"}
+        )
+        self.payload["rows"][0][1] = "changed"
+        with self.client:
+            self.assertEqual(
+                self.client.put(saved["save_url"], json=self.payload).status_code, 200
+            )
+            second_identity = mindhabits._dataset_identity()
+        self.assertNotEqual(first_identity, second_identity)
+        export_page = self.client.get("/export")
+        self.assertIn(b"No completed results are available yet", export_page.data)
+        self.assertNotIn(b"Old Result", export_page.data)
+
+    def test_no_data_pages_offer_both_input_methods_and_help_returns_home(self):
+        for route in ["/preview", "/dashboard", "/wellbeing", "/habits", "/export"]:
+            page = self.client.get(route)
+            self.assertEqual(page.status_code, 200, route)
+            self.assertIn(b"No data available yet", page.data, route)
+            self.assertIn(b"Upload CSV", page.data, route)
+            self.assertIn(b"Enter Data Manually", page.data, route)
+        help_page = self.client.get("/help").get_data(as_text=True)
+        self.assertIn('href="/" class="primary-button"', help_page)
 
     def test_wellbeing_column_detection(self):
         dataset = os.path.join(self.directory.name, "wellbeing.csv")
@@ -174,7 +274,8 @@ class SpreadsheetTests(unittest.TestCase):
         self.assertIn(b"felt_rested", page.data)
         self.assertIn(b"cognitive_performance_score", page.data)
         self.assertIn(b"Well-Being Analysis", page.data)
-        self.assertIn(b"Analyse My Well-Being", page.data)
+        self.assertIn(b"Not Enough Data for Well-Being Analysis", page.data)
+        self.assertNotIn(b"Analyse My Well-Being", page.data)
         self.assertIn(b"Detected Wellness Data", page.data)
         self.assertIn(b"Felt Rested", page.data)
         self.assertNotIn(b"Analysis type: Classification", page.data)

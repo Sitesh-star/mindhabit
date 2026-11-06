@@ -46,8 +46,14 @@ def _csv_rows(dataset_name, wellbeing_result, habit_result, generated_at=None):
             ["Mental Well-Being", "Best Model", wellbeing_result.get("best_model", {}).get("name", "Not available")],
             ["Mental Well-Being", metric_name, metric_value],
         ])
+        seen_factors = set()
         for factor in wellbeing_result.get("contributing_factors", []):
-            rows.append(["Important Factors", "Wellness Factor", factor.get("name", "")])
+            name = factor.get("name", "").strip()
+            key = name.casefold()
+            if not name or key in seen_factors:
+                continue
+            seen_factors.add(key)
+            rows.append(["Important Factors", "Wellness Factor", name])
         for action in wellbeing_result.get("recommendations", []):
             rows.append(["Suggested Actions", "Action", action])
 

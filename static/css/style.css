@@ -6164,3 +6164,40 @@ div >
 .upload-status-error {
   color: #a33a3a;
 }
+/* Shared final-flow actions */
+.empty-dataset-actions,
+.upload-manual-option > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.empty-dataset-actions { margin-top: 18px; }
+
+.upload-manual-option {
+  margin: 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.upload-manual-option > div { justify-content: center; }
+
+.insufficient-data-message {
+  margin-top: 18px;
+  border: 1px solid #e7d39a;
+  background: #fff9e8;
+  color: #6d5717;
+}
+
+@media (max-width: 600px) {
+  .empty-dataset-actions,
+  .empty-dataset-actions a,
+  .upload-manual-option,
+  .upload-manual-option > div,
+  .upload-manual-option a { width: 100%; }
+  .upload-manual-option { flex-direction: column; }
+}

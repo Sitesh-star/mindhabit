@@ -99,13 +99,26 @@ def save_local_upload(file_storage, upload_folder):
     """Development fallback used only when a Blob store is not configured."""
     filename = secure_filename(file_storage.filename or "")
     if not filename or not filename.lower().endswith(".csv"):
-        raise InvalidDatasetError("Please choose a valid CSV file.")
+        raise InvalidDatasetError("Invalid file format. Please choose a CSV file.")
 
     file_storage.stream.seek(0, os.SEEK_END)
     size = file_storage.stream.tell()
     file_storage.stream.seek(0)
-    if size <= 0 or size > MAX_DATASET_BYTES:
-        raise InvalidDatasetError("The CSV must be non-empty and no larger than 25 MB.")
+    if size <= 0:
+        raise InvalidDatasetError("The selected CSV file is empty.")
+    if size > MAX_DATASET_BYTES:
+        raise InvalidDatasetError(
+            "File is too large. Please choose a CSV file smaller than 25 MB."
+        )
+
+    try:
+        pd.read_csv(file_storage.stream)
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError) as error:
+        raise InvalidDatasetError(
+            "MindHabits could not read this CSV file. Please check the file and try again."
+        ) from error
+    finally:
+        file_storage.stream.seek(0)
 
     relative_path = create_dataset_path(filename)
     destination = Path(upload_folder) / Path(relative_path)

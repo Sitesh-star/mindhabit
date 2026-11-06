@@ -3,12 +3,13 @@ import csv
 import hashlib
 import hmac
 import io
+import json
 import os
 from uuid import uuid4
 import pandas as pd
 from werkzeug.utils import secure_filename
 from utils.wellbeing_detector import detect_wellbeing_columns
-from utils.ml_analyzer import AnalysisError, analyze_models
+from utils.ml_analyzer import AnalysisError, MINIMUM_ROWS, analyze_models
 from utils.habit_insights import analyze_habit_insights
 from utils.export_manager import create_csv_report, create_pdf_report
 from utils.dashboard_analyzer import (
@@ -60,21 +61,102 @@ def ensure_anonymous_visitor():
         session["visitor_id"] = str(uuid4())
 
 
+def _active_dataset_reference():
+    active = session.get("active_dataset")
+    if isinstance(active, dict) and active.get("source") in {"blob", "manual"}:
+        return active
+    # Keep existing browser sessions usable after deployment of the unified state.
+    legacy_reference = session.get("dataset_reference")
+    if isinstance(legacy_reference, dict):
+        return {"source": "blob", "reference": legacy_reference}
+    return None
+
+
+def _set_active_blob(reference):
+    session["active_dataset"] = {"source": "blob", "reference": reference}
+    session["dataset_reference"] = reference
+    session.pop("current_spreadsheet_id", None)
+
+
+def _set_active_manual(spreadsheet_id):
+    session["active_dataset"] = {
+        "source": "manual", "spreadsheet_id": int(spreadsheet_id)
+    }
+    session.pop("dataset_reference", None)
+    session.pop("current_spreadsheet_id", None)
+
+
+def load_active_dataset():
+    """Load the one dataset selected for every preview and analysis page."""
+    active = _active_dataset_reference()
+    if active is None:
+        return None
+    if active["source"] == "blob":
+        reference = active.get("reference")
+        frame = load_dataset(reference, app.config["UPLOAD_FOLDER"])
+        return {
+            "dataframe": frame,
+            "identity": dataset_identity(reference),
+            "name": dataset_filename(reference),
+            "source": "blob",
+            "source_label": "CSV upload",
+        }
+
+    record = _database().get_spreadsheet(
+        _visitor_id(), active.get("spreadsheet_id")
+    )
+    if record is None:
+        raise DatasetStorageError("The selected manual spreadsheet no longer exists.")
+    frame = pd.DataFrame(record["rows"], columns=record["columns"])
+    frame = frame.replace(r"^\s*$", pd.NA, regex=True)
+    version_payload = json.dumps(
+        {"columns": record["columns"], "rows": record["rows"]},
+        sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+    ).encode("utf-8")
+    version = hashlib.sha256(version_payload).hexdigest()[:16]
+    return {
+        "dataframe": frame,
+        "identity": f"manual:{record['id']}:{version}",
+        "name": record["name"],
+        "source": "manual",
+        "source_label": "Manual entry",
+        "spreadsheet_id": record["id"],
+    }
+
+
 def _dataset_identity():
-    return dataset_identity(session.get("dataset_reference"))
-
-
-def _dataset_reference():
-    return session.get("dataset_reference")
+    active_reference = _active_dataset_reference()
+    if active_reference is None:
+        return None
+    if active_reference["source"] == "blob":
+        return dataset_identity(active_reference.get("reference"))
+    active = load_active_dataset()
+    return active["identity"]
 
 
 def _load_current_dataset():
-    return load_dataset(_dataset_reference(), app.config["UPLOAD_FOLDER"])
+    active = load_active_dataset()
+    if active is None:
+        raise DatasetStorageError("No dataset is currently selected.")
+    return active["dataframe"]
 
 
 def _dataset_load_failed():
+    session.pop("active_dataset", None)
     session.pop("dataset_reference", None)
-    return redirect(url_for("upload", error="The dataset could not be loaded. Please upload it again."))
+    session.pop("current_spreadsheet_id", None)
+    return render_template(
+        "empty_dataset.html", page_title="Data unavailable",
+        active_page="upload",
+        message="The active dataset could not be loaded. Upload a CSV file or enter your data manually to continue.",
+    ), 404
+
+
+def _no_data_page(page_title, active_page):
+    return render_template(
+        "empty_dataset.html", page_title=page_title, active_page=active_page,
+        message="Upload a CSV file or enter your data manually to continue.",
+    )
 
 
 def _direct_blob_upload_enabled():
@@ -124,7 +206,7 @@ def manual(spreadsheet_id=None):
         spreadsheet = database.get_spreadsheet(_visitor_id(), spreadsheet_id)
         if spreadsheet is None:
             abort(404)
-        session["current_spreadsheet_id"] = spreadsheet_id
+        _set_active_manual(spreadsheet_id)
     saved_spreadsheets = database.list_spreadsheets(_visitor_id())
     return render_template(
         "manual.html", spreadsheet=spreadsheet, saved_spreadsheets=saved_spreadsheets
@@ -156,6 +238,12 @@ def save_spreadsheet(spreadsheet_id=None):
         return jsonify(error="Each row must contain one text value per column."), 400
 
     database = _database()
+    if database.spreadsheet_name_exists(
+        _visitor_id(), name.strip(), exclude_id=spreadsheet_id
+    ):
+        return jsonify(
+            error="A spreadsheet with this name already exists. Please choose another name."
+        ), 409
     if spreadsheet_id is None:
         spreadsheet_id = database.create_spreadsheet(
             _visitor_id(), name.strip(), columns, rows
@@ -167,15 +255,33 @@ def save_spreadsheet(spreadsheet_id=None):
         ):
             abort(404)
         status = 200
-    session["current_spreadsheet_id"] = spreadsheet_id
+    _set_active_manual(spreadsheet_id)
     return jsonify(
         id=spreadsheet_id,
         name=name.strip(),
         url=url_for("manual", spreadsheet_id=spreadsheet_id),
         save_url=url_for("save_spreadsheet", spreadsheet_id=spreadsheet_id, _method="PUT"),
         download_url=url_for("download_spreadsheet", spreadsheet_id=spreadsheet_id),
-        dashboard_url=url_for("dashboard", spreadsheet_id=spreadsheet_id)
+        preview_url=url_for("preview"),
+        dashboard_url=url_for("dashboard")
     ), status
+
+
+@app.route("/manual/<int:spreadsheet_id>/delete", methods=["POST"])
+def delete_spreadsheet(spreadsheet_id):
+    database = _database()
+    if not database.delete_spreadsheet(_visitor_id(), spreadsheet_id):
+        abort(404)
+    database.delete_analysis_results(
+        _visitor_id(), f"manual:{spreadsheet_id}:"
+    )
+    active = _active_dataset_reference()
+    if (
+        active and active.get("source") == "manual"
+        and active.get("spreadsheet_id") == spreadsheet_id
+    ):
+        session.pop("active_dataset", None)
+    return redirect(url_for("manual"))
 
 
 @app.route("/manual/<int:spreadsheet_id>/download")
@@ -207,11 +313,15 @@ def upload():
             reference = save_local_upload(
                 request.files.get("file"), app.config["UPLOAD_FOLDER"]
             )
-        except (AttributeError, InvalidDatasetError) as error:
+        except AttributeError:
+            return render_template(
+                "upload.html", blob_upload_enabled=False,
+                upload_error="Invalid file format. Please choose a CSV file.",
+            ), 400
+        except InvalidDatasetError as error:
             return render_template("upload.html", blob_upload_enabled=False,
                                    upload_error=str(error)), 400
-        session["dataset_reference"] = reference
-        session.pop("current_spreadsheet_id", None)
+        _set_active_blob(reference)
         _reset_analysis_results()
         return redirect(url_for("preview"))
 
@@ -228,11 +338,13 @@ def prepare_blob_upload():
     size = payload.get("size")
     content_type = payload.get("content_type")
     if not filename.lower().endswith(".csv") or not isinstance(size, int):
-        return jsonify(error="Please choose a valid CSV file."), 400
+        return jsonify(error="Invalid file format. Please choose a CSV file."), 400
     if content_type not in {"text/csv", "application/csv", "application/vnd.ms-excel"}:
-        return jsonify(error="Please choose a valid CSV file."), 400
-    if size <= 0 or size > 25 * 1024 * 1024:
-        return jsonify(error="The CSV must be non-empty and no larger than 25 MB."), 400
+        return jsonify(error="Invalid file format. Please choose a CSV file."), 400
+    if size <= 0:
+        return jsonify(error="The selected CSV file is empty."), 400
+    if size > 25 * 1024 * 1024:
+        return jsonify(error="File is too large. Please choose a CSV file smaller than 25 MB."), 400
     pathname = create_dataset_path(filename)
     session["pending_dataset_upload"] = {"pathname": pathname, "filename": filename}
     secret = app.config["SECRET_KEY"]
@@ -268,12 +380,14 @@ def complete_blob_upload():
     app.logger.info("Received canonical uploaded Blob pathname: %s", canonical_pathname)
     try:
         validate_blob_reference(reference)
+        load_dataset(reference, app.config["UPLOAD_FOLDER"])
+    except InvalidDatasetError:
+        return jsonify(error="MindHabits could not read this CSV file. Please check the file and try again."), 400
     except DatasetStorageError:
         app.logger.warning("Uploaded Blob reference could not be verified.", exc_info=True)
-        return jsonify(error="The uploaded dataset could not be verified. Please try again."), 400
+        return jsonify(error="The dataset could not be uploaded. Please try again."), 400
     app.logger.info("Storing canonical Blob pathname in session: %s", canonical_pathname)
-    session["dataset_reference"] = reference
-    session.pop("current_spreadsheet_id", None)
+    _set_active_blob(reference)
     _reset_analysis_results()
     return jsonify(preview_url=url_for("preview"))
 
@@ -283,10 +397,12 @@ def complete_blob_upload():
 # --------------------------------------------------
 @app.route("/preview")
 def preview():
-    if _dataset_reference() is None:
-        return redirect(url_for("upload"))
+    active = _active_dataset_reference()
+    if active is None:
+        return _no_data_page("Data Preview", "preview")
     try:
-        df = _load_current_dataset()
+        dataset = load_active_dataset()
+        df = dataset["dataframe"]
     except DatasetStorageError:
         app.logger.warning("The current dataset could not be loaded.", exc_info=True)
         return _dataset_load_failed()
@@ -327,7 +443,7 @@ def preview():
         .sum()
     )
 
-    filename = dataset_filename(_dataset_reference())
+    filename = dataset["name"]
 
     return render_template(
         "preview.html",
@@ -337,7 +453,8 @@ def preview():
         total_columns=total_columns,
         missing_values=missing_values,
         duplicate_rows=duplicate_rows,
-        filename=filename
+        filename=filename,
+        source_label=dataset["source_label"],
     )
 
 
@@ -347,25 +464,19 @@ def preview():
 @app.route("/dashboard")
 def dashboard():
     spreadsheet_id = request.args.get("spreadsheet_id", type=int)
-    if spreadsheet_id is None:
-        spreadsheet_id = session.get("current_spreadsheet_id")
-
     if spreadsheet_id is not None:
-        record = _database().get_spreadsheet(_visitor_id(), spreadsheet_id)
-        if record is None:
+        if _database().get_spreadsheet(_visitor_id(), spreadsheet_id) is None:
             abort(404)
-        df = pd.DataFrame(record["rows"], columns=record["columns"])
-        dataset_name = record["name"]
-        source_label = "Manual entry"
-    else:
-        if _dataset_reference() is None:
-            return redirect(url_for("upload"))
-        try:
-            df = _load_current_dataset()
-        except DatasetStorageError:
-            return _dataset_load_failed()
-        dataset_name = dataset_filename(_dataset_reference())
-        source_label = "CSV upload"
+        _set_active_manual(spreadsheet_id)
+    if _active_dataset_reference() is None:
+        return _no_data_page("Dashboard", "dashboard")
+    try:
+        dataset = load_active_dataset()
+        df = dataset["dataframe"]
+    except DatasetStorageError:
+        return _dataset_load_failed()
+    dataset_name = dataset["name"]
+    source_label = dataset["source_label"]
 
     df = prepare_dashboard_dataframe(df)
 
@@ -395,7 +506,7 @@ def dashboard():
         wellness_column_count=dashboard_content["wellness_column_count"],
         date_column=dashboard_content["date_column"],
         selection_note=dashboard_content["selection_note"],
-        dashboard_url=url_for("dashboard", spreadsheet_id=spreadsheet_id)
+        dashboard_url=url_for("dashboard")
     )
 
 
@@ -404,8 +515,8 @@ def dashboard():
 # --------------------------------------------------
 @app.route("/wellbeing", methods=["GET", "POST"])
 def wellbeing():
-    if _dataset_reference() is None:
-        return redirect(url_for("upload"))
+    if _active_dataset_reference() is None:
+        return _no_data_page("Mental Well-Being", "wellbeing")
     try:
         df = _load_current_dataset()
     except DatasetStorageError:
@@ -420,13 +531,19 @@ def wellbeing():
 
     detection = detect_wellbeing_columns(df)
     recommended_outcome = detection["recommended_outcome"]
+    analysis_ready = bool(
+        recommended_outcome
+        and len(df) >= MINIMUM_ROWS
+        and df.dropna(how="all").shape[0] >= MINIMUM_ROWS
+        and len(df.columns) >= 2
+    )
     analysis_result = None
     analysis_error = None
 
     if request.method == "POST":
-        if recommended_outcome is None:
+        if not analysis_ready:
             analysis_error = (
-                "MindHabits could not identify a suitable outcome for model comparison."
+                "MindHabits found some relevant wellness information, but there are not enough usable records or predictors to run a reliable analysis."
             )
         else:
             try:
@@ -458,7 +575,8 @@ def wellbeing():
         alternative_outcomes=detection["alternative_outcomes"],
         total_relevant_columns=detection["total_relevant_columns"],
         analysis_result=analysis_result,
-        analysis_error=analysis_error
+        analysis_error=analysis_error,
+        analysis_ready=analysis_ready,
     )
 
 
@@ -467,21 +585,17 @@ def wellbeing():
 # --------------------------------------------------
 @app.route("/habits")
 def habits():
-    habit_result = None
-    if _dataset_reference() is not None:
-        try:
-            df = _load_current_dataset()
-        except DatasetStorageError:
-            return _dataset_load_failed()
-        df.columns = (
-            df.columns
-            .str.strip()
-            .str.lower()
-            .str.replace(" ", "_")
-            .str.replace("-", "_")
-        )
-        habit_result = analyze_habit_insights(df)
-        _store_analysis_result("habits", habit_result)
+    if _active_dataset_reference() is None:
+        return _no_data_page("Habit Insights", "habits")
+    try:
+        df = _load_current_dataset()
+    except DatasetStorageError:
+        return _dataset_load_failed()
+    df.columns = (
+        df.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("-", "_")
+    )
+    habit_result = analyze_habit_insights(df)
+    _store_analysis_result("habits", habit_result)
 
     return render_template("habits.html", habit_result=habit_result)
 
@@ -491,14 +605,18 @@ def habits():
 # --------------------------------------------------
 @app.route("/export")
 def export():
+    if _active_dataset_reference() is None:
+        return _no_data_page("Export Results", "export")
+    try:
+        dataset = load_active_dataset()
+    except DatasetStorageError:
+        return _dataset_load_failed()
     results = _current_analysis_results()
     wellbeing_result = results["wellbeing"]
     habit_result = results["habits"]
     habit_available = bool(habit_result and habit_result.get("insights"))
     has_results = bool(wellbeing_result or habit_available)
-    dataset_name = (
-        dataset_filename(_dataset_reference()) if _dataset_reference() else None
-    )
+    dataset_name = dataset["name"]
     return render_template(
         "export.html",
         wellbeing_result=wellbeing_result,
@@ -511,6 +629,8 @@ def export():
 
 @app.route("/export/csv")
 def download_analysis_csv():
+    if _active_dataset_reference() is None:
+        return redirect(url_for("export"))
     results = _current_analysis_results()
     habit_result = results["habits"]
     if not results["wellbeing"] and not (
@@ -518,7 +638,10 @@ def download_analysis_csv():
     ):
         return redirect(url_for("export"))
 
-    dataset_name = dataset_filename(_dataset_reference()) if _dataset_reference() else None
+    try:
+        dataset_name = load_active_dataset()["name"]
+    except DatasetStorageError:
+        return _dataset_load_failed()
     report = create_csv_report(
         dataset_name,
         results["wellbeing"],
@@ -534,6 +657,8 @@ def download_analysis_csv():
 
 @app.route("/export/pdf")
 def download_analysis_pdf():
+    if _active_dataset_reference() is None:
+        return redirect(url_for("export"))
     results = _current_analysis_results()
     habit_result = results["habits"]
     if not results["wellbeing"] and not (
@@ -541,16 +666,12 @@ def download_analysis_pdf():
     ):
         return redirect(url_for("export"))
 
-    dataset_name = dataset_filename(_dataset_reference()) if _dataset_reference() else None
-    report_dataframe = None
-    if _dataset_reference():
-        try:
-            report_dataframe = _load_current_dataset()
-        except DatasetStorageError:
-            app.logger.warning(
-                "The current dataset could not be read for PDF charts.",
-                exc_info=True,
-            )
+    try:
+        dataset = load_active_dataset()
+    except DatasetStorageError:
+        return _dataset_load_failed()
+    dataset_name = dataset["name"]
+    report_dataframe = dataset["dataframe"]
     report = create_pdf_report(
         dataset_name,
         results["wellbeing"],

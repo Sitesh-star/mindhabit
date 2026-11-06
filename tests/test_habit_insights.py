@@ -117,7 +117,8 @@ class HabitInsightRouteTests(unittest.TestCase):
         response = self.client.get("/habits")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Upload data to explore your habit patterns", response.data)
+        self.assertIn(b"No data available yet", response.data)
+        self.assertIn(b"Enter Data Manually", response.data)
 
     def test_page_renders_dataset_summary_and_cards(self):
         dataset = os.path.join(self.directory.name, "habits.csv")

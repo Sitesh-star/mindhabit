@@ -1,4 +1,5 @@
 import os
+import io
 import shutil
 import subprocess
 import unittest
@@ -39,6 +40,7 @@ class UploadPageTests(unittest.TestCase):
         self.assertNotIn("Choose a CSV file", page)
         self.assertNotIn("Required Columns", page)
         self.assertNotIn("File Validation", page)
+        self.assertIn("Enter Data Manually", page)
 
     def test_upload_javascript_is_valid(self):
         script_path = Path(mindhabits.app.root_path) / "static" / "js" / "static.js"
@@ -93,7 +95,10 @@ class UploadPageTests(unittest.TestCase):
                 "https://store.private.blob.vercel-storage.com/"
                 f"{canonical_pathname}"
             )
-            with patch("app.validate_blob_reference", side_effect=lambda value: value):
+            with (
+                patch("app.validate_blob_reference", side_effect=lambda value: value),
+                patch("app.load_dataset", return_value=mindhabits.pd.DataFrame({"sleep": [7]})),
+            ):
                 completed = self.client.post("/upload/complete", json={
                     "storage": "blob",
                     "requested_pathname": metadata["pathname"],
@@ -109,6 +114,34 @@ class UploadPageTests(unittest.TestCase):
         self.assertEqual(reference["pathname"], canonical_pathname)
         self.assertEqual(reference["url"], canonical_url)
         self.assertEqual(reference["filename"], "wellness_data.csv")
+        self.assertEqual(
+            browser_session["active_dataset"]["reference"], reference
+        )
+
+    def test_local_upload_validation_messages_are_specific(self):
+        cases = [
+            ("data.txt", b"a,b\n1,2\n", b"Invalid file format"),
+            ("empty.csv", b"", b"selected CSV file is empty"),
+            ("broken.csv", b"\xff\xfe\x00\x00", b"could not read this CSV file"),
+        ]
+        with patch("app._direct_blob_upload_enabled", return_value=False):
+            for filename, content, message in cases:
+                with self.subTest(filename=filename):
+                    response = self.client.post(
+                        "/upload",
+                        data={"file": (io.BytesIO(content), filename)},
+                        content_type="multipart/form-data",
+                    )
+                    self.assertEqual(response.status_code, 400)
+                    self.assertIn(message, response.data)
+
+            oversized = self.client.post(
+                "/upload",
+                data={"file": (io.BytesIO(b"x" * (25 * 1024 * 1024 + 1)), "large.csv")},
+                content_type="multipart/form-data",
+            )
+            self.assertEqual(oversized.status_code, 400)
+            self.assertIn(b"File is too large", oversized.data)
 
 
 if __name__ == "__main__":

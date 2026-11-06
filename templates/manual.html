@@ -102,6 +102,7 @@
     .tracker-actions button:disabled { opacity: 0.6; cursor: wait; }
     #saveStatus { margin-top: 8px; }
     #saveStatus[data-error="true"] { color: #a32929; }
+    .danger-button { color: #9b2c2c; border-color: #e7b8b8; background: #fff7f7; }
   </style>
 </head>
 
@@ -165,13 +166,14 @@
       <div class="saved-trackers">
         <label for="savedSpreadsheets">Open a saved spreadsheet</label>
         <select id="savedSpreadsheets">
-          <option value="">Choose a spreadsheet</option>
+          <option value="{{ url_for('manual') }}">Choose a spreadsheet</option>
           {% for saved in saved_spreadsheets %}
           <option value="{{ url_for('manual', spreadsheet_id=saved.id) }}"
                   {% if spreadsheet and spreadsheet.id == saved.id %}selected{% endif %}>{{ saved.name }}</option>
           {% endfor %}
         </select>
         <a class="secondary-button" href="{{ url_for('manual') }}">New Spreadsheet</a>
+        <small>Recently updated spreadsheets appear first.</small>
       </div>
 
       <section class="data-table-card manual-entry" aria-label="Manual data entry">
@@ -193,7 +195,12 @@
             <button type="button" class="secondary-button" id="addRow">+ Add Row</button>
             <button type="button" class="secondary-button" id="saveSpreadsheet">Save Spreadsheet</button>
             <button type="button" class="secondary-button" id="downloadSpreadsheet">Download CSV</button>
-            <button type="button" class="primary-button" id="viewDashboard">View Dashboard</button>
+            {% if spreadsheet %}
+            <form method="POST" action="{{ url_for('delete_spreadsheet', spreadsheet_id=spreadsheet.id) }}" onsubmit="return confirm('Delete this spreadsheet? This action cannot be undone.');">
+              <button type="submit" class="secondary-button danger-button">Delete Spreadsheet</button>
+            </form>
+            {% endif %}
+            <button type="button" class="primary-button" id="viewDashboard">Preview Data</button>
           </div>
         </div>
         <div class="table-wrapper">
@@ -325,7 +332,7 @@
       saveStatus.textContent = 'New spreadsheet. Save when you are ready.';
     }
 
-    async function saveSpreadsheet(download = false, openDashboard = false) {
+    async function saveSpreadsheet(download = false, openPreview = false) {
       if (!spreadsheetName.value.trim()) {
         saveStatus.dataset.error = 'true';
         saveStatus.textContent = 'Please enter a spreadsheet name.';
@@ -370,7 +377,7 @@
         saveStatus.textContent = revision === savedRevision
           ? 'Spreadsheet saved.' : 'Spreadsheet saved. You have newer unsaved changes.';
         if (download) window.location.assign(result.download_url);
-        if (openDashboard) window.location.assign(result.dashboard_url);
+        if (openPreview) window.location.assign(result.preview_url);
       } catch (error) {
         saveStatus.dataset.error = 'true';
         saveStatus.textContent = error.message || 'Unable to save. Please try again.';
@@ -385,7 +392,7 @@
     downloadButton.addEventListener('click', () => saveSpreadsheet(true));
     dashboardButton.addEventListener('click', () => saveSpreadsheet(false, true));
     savedSelect.addEventListener('change', () => {
-      if (savedSelect.value) window.location.assign(savedSelect.value);
+      window.location.assign(savedSelect.value || {{ url_for('manual') | tojson }});
     });
     window.addEventListener('beforeunload', (event) => {
       if (revision !== savedRevision) {

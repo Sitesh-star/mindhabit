@@ -302,10 +302,13 @@ def _chart_explanation(chart):
 def _factor_details(frame, wellbeing_result):
     details = []
     seen = set()
+    date_column = None
+    if frame is not None:
+        date_column = build_dashboard_content(frame).get("date_column")
     for factor in (wellbeing_result or {}).get("contributing_factors", [])[:5]:
         name = factor.get("name") or _friendly_name(factor.get("column", ""))
         concept = _concept_for(factor.get("column"), name)
-        dedupe_key = concept or _normalise(name)
+        dedupe_key = _normalise(name)
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
@@ -313,9 +316,18 @@ def _factor_details(frame, wellbeing_result):
         pattern = "This factor was meaningfully associated with the analysis result."
         if frame is not None and column in frame.columns:
             series = frame[column].dropna()
+            value_label = "In the most recent row with a usable value"
+            selected_value = series.iloc[-1] if not series.empty else None
+            if date_column and date_column in frame and not series.empty:
+                dates = pd.to_datetime(frame[date_column], errors="coerce", format="mixed")
+                valid_indexes = series.index.intersection(dates.dropna().index)
+                if len(valid_indexes):
+                    latest_index = dates.loc[valid_indexes].idxmax()
+                    selected_value = frame.at[latest_index, column]
+                    value_label = "In your latest dated record"
             if not series.empty and pd.api.types.is_numeric_dtype(frame[column]):
                 values = pd.to_numeric(series, errors="coerce").dropna()
-                latest = float(values.iloc[-1])
+                latest = float(selected_value)
                 q1, q3 = float(values.quantile(0.25)), float(values.quantile(0.75))
                 unit = _unit_for(column)
                 if latest < q1:
@@ -324,11 +336,11 @@ def _factor_details(frame, wellbeing_result):
                     position_label = "higher than the typical range"
                 else:
                     position_label = "within the typical range"
-                pattern = f"The latest recorded value is {_number(latest)}{unit}, which is {position_label} in your dataset."
+                pattern = f"{value_label}, {name.casefold()} was {_number(latest)}{unit}, which is {position_label} in your dataset."
             elif not series.empty:
-                latest = str(series.iloc[-1]).strip()
+                latest = str(selected_value).strip()
                 common = str(series.astype(str).mode().iloc[0]).strip()
-                pattern = f"The latest recorded value is {latest}. The most common response in your data is {common}."
+                pattern = f"{value_label}, {name.casefold()} was {latest}. The most common response in your data is {common}."
         details.append({
             "name": name,
             "concept": concept,

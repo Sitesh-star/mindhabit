@@ -46,7 +46,7 @@
           </div>
         </div>
 
-        {% if recommended_outcome %}
+        {% if recommended_outcome and analysis_ready %}
         <div class="recommended-analysis">
           <div class="recommended-icon"><span class="material-symbols-outlined">stars</span></div>
           <div>
@@ -61,6 +61,15 @@
             <span id="analysisButtonText">Analyse My Well-Being</span>
           </button>
         </form>
+        {% elif recommended_outcome %}
+        <div class="analysis-message insufficient-data-message" role="status">
+          <span class="material-symbols-outlined">info</span>
+          <div>
+            <h3>Not Enough Data for Well-Being Analysis</h3>
+            <p>MindHabits identified <strong>{{ recommended_outcome.display_name }}</strong> as a possible outcome, but there are not enough usable records or predictors to run a reliable analysis.</p>
+            <p>Try adding more daily records or wellness information such as sleep, stress, activity, mood, or recovery data.</p>
+          </div>
+        </div>
         {% else %}
         <p class="outcome-empty">MindHabits found relevant well-being information, but no suitable prediction outcome could be identified automatically.</p>
         {% endif %}

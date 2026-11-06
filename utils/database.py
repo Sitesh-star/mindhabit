@@ -266,6 +266,20 @@ class Database:
             "rows": self._decode_json(record["rows_json"]),
         }
 
+    def spreadsheet_name_exists(self, visitor_id, name, exclude_id=None):
+        with self.connect() as connection:
+            self.initialize(connection)
+            p = self.placeholder
+            query = (
+                f"SELECT id FROM spreadsheets WHERE visitor_id = {p} "
+                f"AND LOWER(TRIM(name)) = LOWER(TRIM({p}))"
+            )
+            parameters = [visitor_id, name]
+            if exclude_id is not None:
+                query += f" AND id <> {p}"
+                parameters.append(exclude_id)
+            return connection.execute(query, tuple(parameters)).fetchone() is not None
+
     def list_spreadsheets(self, visitor_id):
         with self.connect() as connection:
             self.initialize(connection)
@@ -291,6 +305,16 @@ class Database:
                 (spreadsheet_id, visitor_id),
             )
             return cursor.rowcount > 0
+
+    def delete_analysis_results(self, visitor_id, dataset_id_prefix):
+        with self.connect() as connection:
+            self.initialize(connection)
+            p = self.placeholder
+            connection.execute(
+                f"DELETE FROM analysis_results WHERE visitor_id = {p} "
+                f"AND dataset_id LIKE {p}",
+                (visitor_id, f"{dataset_id_prefix}%"),
+            )
 
     def save_analysis_result(self, visitor_id, dataset_id, result_type, result):
         if result_type not in {"wellbeing", "habits"}:

@@ -143,7 +143,7 @@ class ExportManagerTests(unittest.TestCase):
         self.assertTrue(all(chart["concept"] for chart in content["charts"]))
         self.assertTrue(all(chart["explanation"] for chart in content["charts"]))
         self.assertNotIn("user_id", {chart["name"] for chart in content["charts"]})
-        self.assertIn("latest recorded value", content["factors"][0]["pattern"].casefold())
+        self.assertIn("latest dated record", content["factors"][0]["pattern"].casefold())
         concepts = [item["concept"] for item in content["recommendations"]]
         self.assertEqual(len(concepts), len(set(concepts)))
         self.assertLessEqual(len(content["recommendations"]), 5)
@@ -159,6 +159,44 @@ class ExportManagerTests(unittest.TestCase):
         self.assertIn(b"Important Graphs", report)
         self.assertIn(b"RECORDS ANALYSED", report)
         self.assertIn(b"01 Jan 2026 to 12 Jan 2026", report)
+
+    def test_factors_are_deduplicated_and_record_wording_is_accurate(self):
+        result = sample_wellbeing_result()
+        result["contributing_factors"] = [
+            {"name": "Sleep Duration", "column": "sleep_hours"},
+            {"name": "Sleep Duration", "column": "sleep_hours_copy"},
+            {"name": "Sleep Latency", "column": "sleep_latency"},
+        ]
+        frame = pd.DataFrame({
+            "record_date": ["2026-01-03", "2026-01-01", "2026-01-02"],
+            "sleep_hours": [8, 5, 6],
+            "sleep_hours_copy": [8, 5, 6],
+            "sleep_latency": [10, 30, 20],
+        })
+        content = build_report_content(
+            "wellness.csv", result, None, self.generated_at, frame
+        )
+        self.assertEqual(
+            [factor["name"] for factor in content["factors"]],
+            ["Sleep Duration", "Sleep Latency"],
+        )
+        self.assertIn("latest dated record", content["factors"][0]["pattern"].casefold())
+        self.assertIn("8 hours", content["factors"][0]["pattern"])
+
+        no_date = build_report_content(
+            "wellness.csv", result, None, self.generated_at,
+            frame.drop(columns="record_date"),
+        )
+        self.assertIn(
+            "most recent row with a usable value",
+            no_date["factors"][0]["pattern"].casefold(),
+        )
+        self.assertNotIn("latest dated record", no_date["factors"][0]["pattern"].casefold())
+
+        csv_text = create_csv_report(
+            "wellness.csv", result, None, self.generated_at
+        ).decode("utf-8-sig")
+        self.assertEqual(csv_text.count("Wellness Factor,Sleep Duration"), 1)
 
 
 class ExportRouteTests(unittest.TestCase):

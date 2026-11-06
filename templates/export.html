@@ -98,7 +98,15 @@
             <div>
               <h4>Important wellness factors</h4>
               {% if wellbeing_result.contributing_factors %}
-              <ul>{% for factor in wellbeing_result.contributing_factors %}<li>{{ factor.name }}</li>{% endfor %}</ul>
+              <ul>
+                {% set factor_names = namespace(seen=[]) %}
+                {% for factor in wellbeing_result.contributing_factors %}
+                {% if factor.name not in factor_names.seen %}
+                {% set factor_names.seen = factor_names.seen + [factor.name] %}
+                <li>{{ factor.name }}</li>
+                {% endif %}
+                {% endfor %}
+              </ul>
               {% else %}<p>No important factors were available.</p>{% endif %}
             </div>
             <div>
