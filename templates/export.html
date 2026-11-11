@@ -42,8 +42,8 @@
         <div>
           <small>REPORT STATUS</small>
           {% if has_results %}
-          <h2>Your available results are ready</h2>
-          <p>The report uses results already generated for this dataset. Opening or downloading it does not run the models again.</p>
+          <h2>Your report is ready</h2>
+          <p>Download your complete MindHabits wellness report including your well-being result, key patterns, habit insights, graphs, and recommendations.</p>
           {% else %}
           <h2>No completed results are available yet</h2>
           <p>Complete Mental Well-Being analysis or open Habit Insights before downloading a report.</p>
@@ -147,9 +147,8 @@
 
       <section class="export-section">
         <div class="export-section-heading">
-          <small>AVAILABLE DOWNLOADS</small>
+          <small>YOUR PDF REPORT</small>
           <h2>Download Your Report</h2>
-          <p>Both files contain the same available analysis sections in different formats.</p>
         </div>
         <div class="export-grid">
           <article class="export-card export-card-primary">
@@ -157,14 +156,7 @@
             <h3>PDF Wellness Report</h3>
             <p>A complete user-friendly report with your result, wellness factors, selected graphs, habit insights, and detailed recommended actions.</p>
             <div class="export-file-info"><span><span class="material-symbols-outlined">article</span>PDF File</span></div>
-            <a href="{{ url_for('download_analysis_pdf') }}" class="export-button"><span class="material-symbols-outlined">download</span>Download PDF</a>
-          </article>
-          <article class="export-card">
-            <div class="export-card-icon"><span class="material-symbols-outlined">table_view</span></div>
-            <h3>CSV Report</h3>
-            <p>A structured table containing the available results, factors, actions, and habit insights without graphs.</p>
-            <div class="export-file-info"><span><span class="material-symbols-outlined">description</span>CSV File</span></div>
-            <a href="{{ url_for('download_analysis_csv') }}" class="export-button"><span class="material-symbols-outlined">download</span>Download CSV</a>
+            <a href="{{ url_for('download_analysis_pdf') }}" class="export-button"><span class="material-symbols-outlined">download</span>Download PDF Report</a>
           </article>
         </div>
       </section>

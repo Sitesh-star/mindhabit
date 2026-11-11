@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from utils.wellbeing_detector import detect_wellbeing_columns
 from utils.ml_analyzer import AnalysisError, MINIMUM_ROWS, analyze_models
 from utils.habit_insights import analyze_habit_insights
-from utils.export_manager import create_csv_report, create_pdf_report
+from utils.export_manager import create_pdf_report
 from utils.dashboard_analyzer import (
     build_dashboard_content,
     prepare_dashboard_dataframe,
@@ -570,34 +570,6 @@ def export():
         habit_available=habit_available,
         has_results=has_results,
         dataset_name=dataset_name,
-    )
-
-
-@app.route("/export/csv")
-def download_analysis_csv():
-    if _active_dataset_reference() is None:
-        return redirect(url_for("export"))
-    results = _current_analysis_results()
-    habit_result = results["habits"]
-    if not results["wellbeing"] and not (
-        habit_result and habit_result.get("insights")
-    ):
-        return redirect(url_for("export"))
-
-    try:
-        dataset_name = load_active_dataset()["name"]
-    except DatasetStorageError:
-        return _dataset_load_failed()
-    report = create_csv_report(
-        dataset_name,
-        results["wellbeing"],
-        habit_result,
-    )
-    return send_file(
-        io.BytesIO(report),
-        mimetype="text/csv",
-        as_attachment=True,
-        download_name="mindhabits_analysis_report.csv",
     )
 
 

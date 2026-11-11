@@ -1,5 +1,3 @@
-import csv
-import io
 import os
 import tempfile
 import unittest
@@ -9,7 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 
 import app as mindhabits
-from utils.export_manager import create_csv_report, create_pdf_report
+from utils.export_manager import create_pdf_report
 from utils.pdf_report import build_report_content
 
 
@@ -77,27 +75,6 @@ def sample_habit_result():
 class ExportManagerTests(unittest.TestCase):
     def setUp(self):
         self.generated_at = datetime(2026, 10, 27, 14, 30, tzinfo=timezone.utc)
-
-    def test_csv_contains_clear_report_sections(self):
-        report = create_csv_report(
-            "wellness.csv",
-            sample_wellbeing_result(),
-            sample_habit_result(),
-            self.generated_at,
-        )
-        rows = list(csv.reader(io.StringIO(report.decode("utf-8-sig"))))
-
-        self.assertEqual(rows[0], ["Section", "Item", "Details"])
-        sections = {row[0] for row in rows[1:]}
-        self.assertTrue({
-            "Mental Well-Being", "Important Factors", "Suggested Actions",
-            "Habit Overview", "Habit Insights", "Disclaimer",
-        } <= sections)
-        text = "\n".join(",".join(row) for row in rows)
-        self.assertIn("Felt Rested", text)
-        self.assertIn("Higher confidence", text)
-        self.assertIn("Positive Pattern: Sleep Consistency", text)
-        self.assertNotIn("sleep_hours", text)
 
     def test_pdf_is_valid_and_contains_readable_sections(self):
         report = create_pdf_report(
@@ -193,10 +170,7 @@ class ExportManagerTests(unittest.TestCase):
         )
         self.assertNotIn("latest dated record", no_date["factors"][0]["pattern"].casefold())
 
-        csv_text = create_csv_report(
-            "wellness.csv", result, None, self.generated_at
-        ).decode("utf-8-sig")
-        self.assertEqual(csv_text.count("Wellness Factor,Sleep Duration"), 1)
+
 
 
 class ExportRouteTests(unittest.TestCase):
@@ -244,7 +218,8 @@ class ExportRouteTests(unittest.TestCase):
             response.data,
         )
         self.assertNotIn(b"Download CSV", response.data)
-        self.assertEqual(self.client.get("/export/csv").status_code, 302)
+        self.assertNotIn(b"Download PDF Report", response.data)
+        self.assertEqual(self.client.get("/export/csv").status_code, 404)
         self.assertEqual(self.client.get("/export/pdf").status_code, 302)
 
     def test_cached_results_render_and_download_without_analysis(self):
@@ -256,18 +231,19 @@ class ExportRouteTests(unittest.TestCase):
             patch("app.analyze_habit_insights") as habit_analyzer,
         ):
             page = self.client.get("/export")
-            csv_response = self.client.get("/export/csv")
             pdf_response = self.client.get("/export/pdf")
 
         self.assertEqual(page.status_code, 200)
         self.assertIn(b"Felt Rested", page.data)
         self.assertIn(b"Sleep Consistency", page.data)
-        self.assertIn(b"Download CSV", page.data)
-        self.assertIn(b"Download PDF", page.data)
-        self.assertEqual(csv_response.status_code, 200)
-        self.assertEqual(csv_response.mimetype, "text/csv")
-        self.assertIn("mindhabits_analysis_report.csv", csv_response.headers["Content-Disposition"])
-        self.assertIn(b"Important Factors", csv_response.data)
+        self.assertNotIn(b"Download CSV", page.data)
+        self.assertNotIn(b"CSV Report", page.data)
+        self.assertNotIn(b"/export/csv", page.data)
+        self.assertNotIn(b"Both files", page.data)
+        self.assertIn(b"Your report is ready", page.data)
+        self.assertIn(b"Download your complete MindHabits wellness report including your well-being result, key patterns, habit insights, graphs, and recommendations.", page.data)
+        self.assertEqual(page.data.count(b"Download PDF Report"), 1)
+        self.assertIn(b"Download PDF Report", page.data)
         self.assertEqual(pdf_response.status_code, 200)
         self.assertEqual(pdf_response.mimetype, "application/pdf")
         self.assertIn("mindhabits_analysis_report.pdf", pdf_response.headers["Content-Disposition"])
@@ -286,6 +262,70 @@ class ExportRouteTests(unittest.TestCase):
 
         self.assertIn(b"No completed results are available yet", response.data)
         self.assertNotIn(b"Felt Rested", response.data)
+        self.assertNotIn(b"Download PDF Report", response.data)
+        download = self.client.get("/export/pdf")
+        self.assertEqual(download.status_code, 302)
+        self.assertEqual(download.location, "/export")
+
+    def test_no_active_dataset_shows_input_options_and_blocks_pdf(self):
+        self.store_result("wellbeing", sample_wellbeing_result())
+        with self.client.session_transaction() as browser_session:
+            browser_session.pop("dataset_reference", None)
+            browser_session.pop("active_dataset", None)
+        with patch("app.create_pdf_report") as renderer:
+            page = self.client.get("/export")
+            download = self.client.get("/export/pdf")
+        self.assertEqual(page.status_code, 200)
+        for text in [b"No data available yet", b"Upload CSV", b"Enter Data Manually"]:
+            self.assertIn(text, page.data)
+        self.assertNotIn(b"Download PDF Report", page.data)
+        self.assertEqual(download.status_code, 302)
+        self.assertEqual(download.location, "/export")
+        renderer.assert_not_called()
+
+    def test_analysis_csv_route_is_removed_even_with_results(self):
+        self.store_result("wellbeing", sample_wellbeing_result())
+        self.assertEqual(self.client.get("/export/csv").status_code, 404)
+        self.assertNotIn("download_analysis_csv", mindhabits.app.view_functions)
+
+    def test_manual_pdf_uses_active_spreadsheet_and_rejects_edited_results(self):
+        self.store_result("wellbeing", sample_wellbeing_result())
+        payload = {"name": "My manual tracker", "columns": ["Sleep Hours", "Mood"],
+                   "rows": [["6", "Good"], ["8", "Low"]]}
+        saved = self.client.post("/api/spreadsheets", json=payload).get_json()
+        # Switching from CSV must not reuse the CSV analysis.
+        self.assertEqual(self.client.get("/export/pdf").status_code, 302)
+        with self.client:
+            self.client.get("/export")
+            mindhabits._store_analysis_result("wellbeing", sample_wellbeing_result())
+            mindhabits._store_analysis_result("habits", sample_habit_result())
+        with (
+            patch("app.create_pdf_report", wraps=create_pdf_report) as renderer,
+            patch("app.analyze_models") as model_analyzer,
+            patch("app.analyze_habit_insights") as habit_analyzer,
+        ):
+            download = self.client.get("/export/pdf")
+        self.assertEqual(download.status_code, 200)
+        self.assertTrue(download.data.startswith(b"%PDF-1.4"))
+        self.assertIn(b"My manual tracker", download.data)
+        args = renderer.call_args
+        self.assertEqual(args.args[0], payload["name"])
+        self.assertEqual(args.args[1], sample_wellbeing_result())
+        self.assertEqual(args.args[2], sample_habit_result())
+        self.assertEqual(args.kwargs["dataframe"].values.tolist(), payload["rows"])
+        model_analyzer.assert_not_called()
+        habit_analyzer.assert_not_called()
+        # Editing the spreadsheet creates a new dataset version with no current results.
+        payload["rows"][0][0] = "9"
+        response = self.client.put(saved["save_url"], json=payload)
+        self.assertEqual(response.status_code, 200)
+        with patch("app.create_pdf_report") as renderer:
+            page = self.client.get("/export")
+            download = self.client.get("/export/pdf")
+        self.assertIn(b"No completed results are available yet", page.data)
+        self.assertNotIn(b"Download PDF Report", page.data)
+        self.assertEqual(download.status_code, 302)
+        renderer.assert_not_called()
 
     def store_result(self, result_type, result):
         with self.client.session_transaction() as browser_session:
