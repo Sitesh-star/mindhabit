@@ -262,7 +262,7 @@ def save_spreadsheet(spreadsheet_id=None):
         url=url_for("manual", spreadsheet_id=spreadsheet_id),
         save_url=url_for("save_spreadsheet", spreadsheet_id=spreadsheet_id, _method="PUT"),
         download_url=url_for("download_spreadsheet", spreadsheet_id=spreadsheet_id),
-        preview_url=url_for("preview"),
+        preview_url=url_for("dashboard"),
         dashboard_url=url_for("dashboard")
     ), status
 
@@ -323,7 +323,7 @@ def upload():
                                    upload_error=str(error)), 400
         _set_active_blob(reference)
         _reset_analysis_results()
-        return redirect(url_for("preview"))
+        return redirect(url_for("dashboard"))
 
     return render_template("upload.html", blob_upload_enabled=_direct_blob_upload_enabled(),
                            upload_error=request.args.get("error"))
@@ -389,7 +389,7 @@ def complete_blob_upload():
     app.logger.info("Storing canonical Blob pathname in session: %s", canonical_pathname)
     _set_active_blob(reference)
     _reset_analysis_results()
-    return jsonify(preview_url=url_for("preview"))
+    return jsonify(preview_url=url_for("dashboard"))
 
 
 # --------------------------------------------------
@@ -397,65 +397,7 @@ def complete_blob_upload():
 # --------------------------------------------------
 @app.route("/preview")
 def preview():
-    active = _active_dataset_reference()
-    if active is None:
-        return _no_data_page("Data Preview", "preview")
-    try:
-        dataset = load_active_dataset()
-        df = dataset["dataframe"]
-    except DatasetStorageError:
-        app.logger.warning("The current dataset could not be loaded.", exc_info=True)
-        return _dataset_load_failed()
-
-    # Clean column names
-    df.columns = (
-        df.columns
-        .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
-        .str.replace("-", "_")
-    )
-
-    columns = df.columns.tolist()
-
-    rows = (
-        df.head(5)
-        .fillna("")
-        .to_dict(
-            orient="records"
-        )
-    )
-
-    total_rows = len(df)
-
-    total_columns = len(
-        df.columns
-    )
-
-    missing_values = int(
-        df.isnull()
-        .sum()
-        .sum()
-    )
-
-    duplicate_rows = int(
-        df.duplicated()
-        .sum()
-    )
-
-    filename = dataset["name"]
-
-    return render_template(
-        "preview.html",
-        columns=columns,
-        rows=rows,
-        total_rows=total_rows,
-        total_columns=total_columns,
-        missing_values=missing_values,
-        duplicate_rows=duplicate_rows,
-        filename=filename,
-        source_label=dataset["source_label"],
-    )
+    return dashboard()
 
 
 # --------------------------------------------------
@@ -469,7 +411,7 @@ def dashboard():
             abort(404)
         _set_active_manual(spreadsheet_id)
     if _active_dataset_reference() is None:
-        return _no_data_page("Dashboard", "dashboard")
+        return _no_data_page("Data Overview", "dashboard")
     try:
         dataset = load_active_dataset()
         df = dataset["dataframe"]
@@ -506,6 +448,10 @@ def dashboard():
         wellness_column_count=dashboard_content["wellness_column_count"],
         date_column=dashboard_content["date_column"],
         selection_note=dashboard_content["selection_note"],
+        wellness_areas=dashboard_content["wellness_areas"],
+        date_range=dashboard_content["date_range"],
+        record_columns=dataset["dataframe"].columns.tolist(),
+        record_rows=dataset["dataframe"].head(10).fillna("").values.tolist(),
         dashboard_url=url_for("dashboard")
     )
 

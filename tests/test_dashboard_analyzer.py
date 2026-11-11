@@ -64,7 +64,7 @@ class DashboardAnalyzerTests(unittest.TestCase):
         self.assertEqual(len(sleep_summaries), 1)
         self.assertEqual(sleep_summaries[0]["name"], "hours_slept")
 
-    def test_unrelated_data_uses_safe_generic_fallback(self):
+    def test_unrelated_data_does_not_invent_wellness_summaries(self):
         frame = pd.DataFrame({
             "Record ID": range(20),
             "Favourite Colour": ["Blue", "Red", "Green", "Blue"] * 5,
@@ -77,7 +77,8 @@ class DashboardAnalyzerTests(unittest.TestCase):
 
         self.assertFalse(result["wellness_detected"])
         names = {summary["name"] for summary in result["column_summaries"]}
-        self.assertIn("score_value", names)
+        self.assertEqual(result["column_summaries"], [])
+        self.assertEqual(result["distribution_charts"], [])
         self.assertNotIn("record_id", names)
         self.assertNotIn("unique_comment", names)
         self.assertLessEqual(len(result["column_summaries"]), 6)

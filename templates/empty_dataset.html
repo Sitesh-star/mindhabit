@@ -13,8 +13,7 @@
     <nav class="nav-menu">
       <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
       <a href="{{ url_for('upload') }}" class="nav-item{% if active_page == 'upload' %} active{% endif %}"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
-      <a href="{{ url_for('preview') }}" class="nav-item{% if active_page == 'preview' %} active{% endif %}"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
-      <a href="{{ url_for('dashboard') }}" class="nav-item{% if active_page == 'dashboard' %} active{% endif %}"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item{% if active_page == 'dashboard' %} active{% endif %}"><span class="material-symbols-outlined">dashboard</span><span>Data Overview</span></a>
       <a href="{{ url_for('wellbeing') }}" class="nav-item{% if active_page == 'wellbeing' %} active{% endif %}"><span class="material-symbols-outlined">psychology</span><span>Mental Well-Being</span></a>
       <a href="{{ url_for('habits') }}" class="nav-item{% if active_page == 'habits' %} active{% endif %}"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
       <a href="{{ url_for('export') }}" class="nav-item{% if active_page == 'export' %} active{% endif %}"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>

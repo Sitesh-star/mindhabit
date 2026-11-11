@@ -6201,3 +6201,15 @@ div >
   .upload-manual-option a { width: 100%; }
   .upload-manual-option { flex-direction: column; }
 }
+
+/* Data Overview keeps long names, charts and optional records within the page. */
+.dashboard-stats > *, .dashboard-chart-grid > *, .overview-records { min-width: 0; }
+.dashboard-source strong, .dashboard-stat-card strong { overflow-wrap: anywhere; }
+.dashboard-stat-card .overview-date-range { font-size: 18px; }
+.overview-records { margin-top: 24px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.overview-records summary { cursor: pointer; font-weight: 700; color: var(--primary); }
+.overview-records p, .overview-chart-description { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.overview-records .table-wrapper { max-width: 100%; overflow-x: auto; }
+.overview-records table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.overview-records th, .overview-records td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+.dashboard-chart-container { min-width: 0; max-width: 100%; }

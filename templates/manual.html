@@ -128,13 +128,9 @@
         <span class="material-symbols-outlined">upload_file</span>
         <span>Upload Data</span>
       </a>
-      <a href="{{ url_for('preview') }}" class="nav-item">
-        <span class="material-symbols-outlined">table_chart</span>
-        <span>Data Preview</span>
-      </a>
       <a href="{% if spreadsheet %}{{ url_for('dashboard', spreadsheet_id=spreadsheet.id) }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="nav-item" id="dashboardNav">
         <span class="material-symbols-outlined">dashboard</span>
-        <span>Dashboard</span>
+        <span>Data Overview</span>
       </a>
       <a href="{{ url_for('wellbeing') }}" class="nav-item">
         <span class="material-symbols-outlined">mood</span>
@@ -200,7 +196,7 @@
               <button type="submit" class="secondary-button danger-button">Delete Spreadsheet</button>
             </form>
             {% endif %}
-            <button type="button" class="primary-button" id="viewDashboard">Preview Data</button>
+            <button type="button" class="primary-button" id="viewDashboard">View Data Overview</button>
           </div>
         </div>
         <div class="table-wrapper">

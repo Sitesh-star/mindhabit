@@ -10,14 +10,16 @@ from utils.wellbeing_detector import ID_HINTS, ID_NAMES
 
 
 CONCEPT_RULES = OrderedDict([
-    ("Sleep", ("sleep", "slept", "sleeping", "bedtime", "rest", "rested", "latency", "wake")),
+    ("Sleep", ("sleep", "slept", "sleeping", "bedtime", "rested", "latency", "wake")),
     ("Stress", ("stress", "anxiety", "tension")),
     ("Activity", ("steps", "activity", "exercise", "workout", "movement", "walking", "distance")),
-    ("Screen Use", ("screen", "phone", "device_use", "digital", "usage")),
+    ("Screen Use", ("screen", "phone", "device_use", "digital")),
     ("Mindfulness", ("mindfulness", "meditation", "relaxation")),
     ("Mood / Well-Being", ("mood", "emotion", "wellbeing", "well_being", "happiness", "rested")),
     ("Physiology", ("heart_rate", "heartrate", "hr", "hrv", "spo2", "pulse", "blood_pressure", "sbp", "dbp")),
-    ("Lifestyle", ("caffeine", "coffee", "alcohol")),
+    ("Caffeine", ("caffeine", "coffee")),
+    ("Alcohol", ("alcohol",)),
+    ("Recovery", ("recovery", "readiness")),
 ])
 
 CONCEPT_PRIORITY = {
@@ -28,12 +30,15 @@ CONCEPT_PRIORITY = {
     "Mindfulness": 6,
     "Mood / Well-Being": 7,
     "Physiology": 6,
-    "Lifestyle": 5,
+    "Caffeine": 5,
+    "Alcohol": 5,
+    "Recovery": 6,
 }
 
 TECHNICAL_TOKENS = {
     "identifier", "index", "uuid", "serial", "token", "hash", "key",
-    "filename", "filepath", "url", "version",
+    "filename", "filepath", "url", "version", "id", "code", "encoded",
+    "country", "region", "model",
 }
 
 
@@ -66,7 +71,7 @@ def prepare_dashboard_dataframe(dataframe):
         converted = pd.to_numeric(present, errors="coerce")
         if len(present) and converted.notna().all():
             dataframe[column] = pd.to_numeric(dataframe[column], errors="coerce")
-    return dataframe
+    return dataframe.replace([float("inf"), float("-inf")], float("nan"))
 
 
 def _normalised(name):
@@ -101,8 +106,6 @@ def _is_identifier_or_technical(column_name, series):
     unique_ratio = usable.nunique(dropna=True) / len(usable)
     if unique_ratio >= 0.95 and tokens & ID_HINTS:
         return True
-    if not pd.api.types.is_numeric_dtype(series) and unique_ratio >= 0.85:
-        return True
     return False
 
 
@@ -114,9 +117,11 @@ def _find_date_column(dataframe):
         tokens = set(name.split("_"))
         if "date" not in tokens and "timestamp" not in name:
             continue
-        dates = pd.to_datetime(dataframe[column], errors="coerce", format="mixed")
+        if pd.api.types.is_numeric_dtype(dataframe[column]):
+            continue
+        dates = pd.to_datetime(dataframe[column], errors="coerce", format="mixed", utc=True)
         usable = int(dates.notna().sum())
-        if usable < min(3, total_rows) or not total_rows:
+        if usable < min(3, total_rows) or not total_rows or usable / total_rows < 0.5:
             continue
         score = usable / total_rows
         if best is None or score > best[2]:
@@ -126,16 +131,15 @@ def _find_date_column(dataframe):
 
 def _column_quality(column_name, series, concept=None):
     usable = series.dropna()
-    if usable.empty or usable.nunique(dropna=True) <= 1:
+    if usable.empty:
         return None
 
     total = len(series)
     usable_count = len(usable)
     unique_count = int(usable.nunique(dropna=True))
-    unique_ratio = unique_count / usable_count
     numeric = pd.api.types.is_numeric_dtype(series)
 
-    if not numeric and (unique_count > 40 or unique_ratio > 0.65):
+    if not numeric and unique_count > 40:
         return None
 
     score = (usable_count / total * 5) if total else 0
@@ -202,29 +206,12 @@ def _select_columns(dataframe, date_column, limit=6):
     selected = selected[:limit]
     wellness_count = len(selected)
 
-    if len(selected) < min(4, limit):
-        generic = []
-        for column in dataframe.columns:
-            if column == date_column or column in used_columns:
-                continue
-            series = dataframe[column]
-            if _is_identifier_or_technical(column, series):
-                continue
-            quality = _column_quality(column, series)
-            if quality is not None:
-                generic.append({"column": column, "concept": None, "score": quality})
-        generic.sort(key=lambda item: (-item["score"], item["column"]))
-        for item in generic:
-            selected.append(item)
-            used_columns.add(item["column"])
-            if len(selected) >= min(4, limit):
-                break
     return selected[:limit], wellness_count, len(candidates)
 
 
 def _number(value):
     value = round(float(value), 2)
-    return str(int(value)) if value.is_integer() else str(value)
+    return f"{int(value):,}" if value.is_integer() else f"{value:,}"
 
 
 def _unit_for(column_name):
@@ -259,16 +246,6 @@ def _summary_for(column, series, concept=None):
         main = f"Most common: {counts.index[0]}"
         detail = f"{len(counts)} different response{'s' if len(counts) != 1 else ''}"
     return {"name": column, "kind": kind, "main": main, "detail": detail}
-
-
-def _date_summary(date_column, dates):
-    valid = dates.dropna()
-    return {
-        "name": date_column,
-        "kind": "Date",
-        "main": f"From {valid.min().strftime('%d %b %Y')}",
-        "detail": f"To {valid.max().strftime('%d %b %Y')}",
-    }
 
 
 def _numeric_distribution(column, series):
@@ -343,48 +320,90 @@ def _trend_chart(column, series, dates):
     }
 
 
+def _friendly_label(column, concept):
+    """Describe the selected measurement without exposing schema spelling."""
+    name = _normalised(column)
+    tokens = set(name.split("_"))
+    if concept == "Sleep":
+        if "latency" in name:
+            return "Time to Fall Asleep"
+        if any(word in name for word in ("quality", "rested")):
+            return "Sleep Quality"
+        if "wake" in name:
+            return "Wake Time"
+        if "bedtime" in name:
+            return "Bedtime"
+        return "Sleep Duration" if _unit_for(column) else "Sleep"
+    if concept == "Activity":
+        if "steps" in tokens:
+            return "Daily Steps"
+        if "distance" in tokens:
+            return "Activity Distance"
+        if "type" in tokens:
+            return "Activity Type"
+        return "Activity"
+    if concept == "Physiology":
+        if "hrv" in tokens:
+            return "Heart Rate Variability"
+        if tokens & {"spo2"}:
+            return "Blood Oxygen"
+        if "blood_pressure" in name or tokens & {"sbp", "dbp"}:
+            return "Blood Pressure"
+        return "Heart Rate"
+    return {"Stress": "Stress Levels", "Screen Use": "Screen Time",
+            "Mood / Well-Being": "Mood / Well-Being"}.get(concept, concept)
+
+
 def build_dashboard_content(dataframe):
-    """Return ranked summaries and charts without assuming a fixed schema."""
+    """Return up to six wellness summaries and three data-based patterns."""
     date_match = _find_date_column(dataframe)
     date_column = date_match[0] if date_match else None
     dates = date_match[1] if date_match else None
-    selected, wellness_count, eligible_count = _select_columns(
-        dataframe, date_column, limit=6
-    )
-
+    selected, _, _ = _select_columns(dataframe, date_column, limit=6)
+    # Count all detected areas, independently of the six-card display limit.
+    candidates = _detect_candidates(dataframe, date_column)
+    areas = list(dict.fromkeys(item["concept"] for item in candidates))
     summaries = []
-    if date_match:
-        summaries.append(_date_summary(date_column, dates))
-    for item in selected:
-        if len(summaries) >= 6:
-            break
-        summaries.append(
-            _summary_for(item["column"], dataframe[item["column"]], item["concept"])
-        )
-
     charts = []
     for item in selected:
-        column = item["column"]
+        column, concept = item["column"], item["concept"]
         series = dataframe[column]
-        if pd.api.types.is_numeric_dtype(series) and dates is not None:
-            chart = _trend_chart(column, series, dates)
-        elif pd.api.types.is_numeric_dtype(series):
-            chart = _numeric_distribution(column, series)
+        label = _friendly_label(column, concept)
+        numeric = pd.api.types.is_numeric_dtype(series)
+        summary = _summary_for(column, series, concept)
+        summary["label"] = label
+        summaries.append(summary)
+        if len(charts) >= 3:
+            continue
+        chart = _trend_chart(column, series, dates) if numeric and dates is not None else None
+        if chart is None:
+            chart = _numeric_distribution(column, series) if numeric else _categorical_distribution(column, series)
+        if chart is None:
+            continue
+        if chart["type"] == "line":
+            description = (f"Typical recorded values range from {_number(min(chart['values']))}"
+                           f" to {_number(max(chart['values']))}{_unit_for(column)} across the dates shown.")
+        elif numeric:
+            values = pd.to_numeric(series, errors="coerce").dropna()
+            description = (f"The middle half of recorded values falls between {_number(values.quantile(.25))}"
+                           f" and {_number(values.quantile(.75))}{_unit_for(column)}.")
         else:
-            chart = _categorical_distribution(column, series)
-        if chart:
-            charts.append(chart)
-        if len(charts) >= 4:
-            break
-
+            counts = series.dropna().astype(str).value_counts()
+            description = f"{counts.index[0]} is the most common response ({int(counts.iloc[0]):,} of {int(counts.sum()):,} records with a value)."
+        chart.update(title=label, description=description,
+                     y_label=(label + _unit_for(column)) if chart["type"] == "line" else "Records")
+        charts.append(chart)
+    date_range = None
+    if dates is not None:
+        valid = dates.dropna()
+        date_range = f"{valid.min():%d %b %Y} \u2013 {valid.max():%d %b %Y}"
     return {
         "column_summaries": summaries,
         "distribution_charts": charts,
-        "wellness_detected": wellness_count > 0,
-        "wellness_column_count": wellness_count,
+        "wellness_detected": bool(areas),
+        "wellness_column_count": len(areas),
+        "wellness_areas": areas,
         "date_column": date_column,
-        "selection_note": (
-            f"Showing {len(summaries)} useful summaries selected from this dataset."
-            if eligible_count > len(selected) else None
-        ),
+        "date_range": date_range,
+        "selection_note": None,
     }

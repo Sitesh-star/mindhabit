@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<link rel="stylesheet" href="static\css\style.css">
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
   />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 
 <body>
@@ -47,14 +47,9 @@
         <span>Upload Data</span>
       </a>
 
-      <a href="{{ url_for('preview') }}" class="nav-item">
-        <span class="material-symbols-outlined">table_chart</span>
-        <span>Data Preview</span>
-      </a>
-
       <a href="{{ url_for('dashboard') }}" class="nav-item">
         <span class="material-symbols-outlined">dashboard</span>
-        <span>Dashboard</span>
+        <span>Data Overview</span>
       </a>
 
       <a href="{{ url_for('wellbeing') }}" class="nav-item">
@@ -92,7 +87,7 @@
 
         <div>
 
-          <small>SUPPORT & PROJECT INFORMATION</small>
+          <small>SUPPORT & INFORMATION</small>
 
           <h1>Help / About</h1>
 
@@ -195,39 +190,22 @@
               <h3>Review Your Data</h3>
 
               <p>
-                Check the Data Preview page to confirm that
-                the uploaded records have been read correctly.
+                Review wellness summaries, key patterns and optional records
+                on the Data Overview page.
               </p>
 
             </div>
 
           </div>
+
+
+
 
 
           <div class="help-step">
 
             <div class="help-step-number">
               3
-            </div>
-
-            <div>
-
-              <h3>Explore the Dashboard</h3>
-
-              <p>
-                Review summary statistics and behavioral
-                trends from the uploaded dataset.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="help-step">
-
-            <div class="help-step-number">
-              4
             </div>
 
             <div>
@@ -248,7 +226,7 @@
           <div class="help-step">
 
             <div class="help-step-number">
-              5
+              4
             </div>
 
             <div>
@@ -268,7 +246,7 @@
           <div class="help-step">
 
             <div class="help-step-number">
-              6
+              5
             </div>
 
             <div>
@@ -326,7 +304,7 @@
               table_chart
             </span>
 
-            <h3>Data Preview</h3>
+            <h3>Data Overview</h3>
 
             <p>
               Review uploaded records and basic
@@ -336,20 +314,7 @@
           </div>
 
 
-          <div class="page-guide-card">
 
-            <span class="material-symbols-outlined">
-              dashboard
-            </span>
-
-            <h3>Dashboard</h3>
-
-            <p>
-              Displays behavioral summaries, statistics
-              and trends from available data.
-            </p>
-
-          </div>
 
 
           <div class="page-guide-card">
@@ -531,40 +496,6 @@
             interpreted as medical diagnoses, treatment
             decisions or professional healthcare advice.
           </p>
-
-        </div>
-
-      </section>
-
-
-      <!-- Project Information -->
-      <section class="project-about">
-
-        <div>
-
-          <small>
-            PROJECT INFORMATION
-          </small>
-
-          <h2>
-            Final Year Project
-          </h2>
-
-          <p>
-            MindHabits was developed as an academic project
-            exploring the use of machine learning and
-            behavioral analytics for habit formation and
-            mental well-being.
-          </p>
-
-        </div>
-
-
-        <div class="project-about-icon">
-
-          <span class="material-symbols-outlined">
-            school
-          </span>
 
         </div>
 

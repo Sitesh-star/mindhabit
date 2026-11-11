@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard - MindHabits</title>
+  <title>Data Overview - MindHabits</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,8 +18,7 @@
     <nav class="nav-menu">
       <a href="{{ url_for('home') }}" class="nav-item"><span class="material-symbols-outlined">home</span><span>Home</span></a>
       <a href="{{ url_for('upload') }}" class="nav-item"><span class="material-symbols-outlined">upload_file</span><span>Upload Data</span></a>
-      <a href="{{ url_for('preview') }}" class="nav-item"><span class="material-symbols-outlined">table_chart</span><span>Data Preview</span></a>
-      <a href="{{ dashboard_url }}" class="nav-item active"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+      <a href="{{ dashboard_url }}" class="nav-item active"><span class="material-symbols-outlined">dashboard</span><span>Data Overview</span></a>
       <a href="{{ url_for('wellbeing') }}" class="nav-item"><span class="material-symbols-outlined">mood</span><span>Mental Well-Being</span></a>
       <a href="{{ url_for('habits') }}" class="nav-item"><span class="material-symbols-outlined">insights</span><span>Habit Insights</span></a>
       <a href="{{ url_for('export') }}" class="nav-item"><span class="material-symbols-outlined">download</span><span>Export Results</span></a>
@@ -32,79 +31,55 @@
       <section class="dashboard-heading">
         <div>
           <small>DATA OVERVIEW</small>
-          <h1>Dashboard</h1>
+          <h1>Data Overview</h1>
           <p class="dashboard-source"><strong>{{ dataset_name }}</strong><span>{{ source_label }}</span></p>
         </div>
       </section>
 
       <section class="dashboard-stats" aria-label="Dataset overview">
-        <div class="dashboard-stat-card">
-          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">table_rows</span></div>
-          <div><small>Records</small><strong>{{ total_records }}</strong><p>Rows in this dataset</p></div>
-        </div>
-        <div class="dashboard-stat-card">
-          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">view_column</span></div>
-          <div><small>Columns</small><strong>{{ total_columns }}</strong><p>Fields being tracked</p></div>
-        </div>
-        <div class="dashboard-stat-card">
-          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">task_alt</span></div>
-          <div><small>Data complete</small><strong>{{ completion_rate }}%</strong><p>Cells with a value</p></div>
-        </div>
-        <div class="dashboard-stat-card">
-          <div class="dashboard-stat-icon"><span class="material-symbols-outlined">scan_delete</span></div>
-          <div><small>Missing values</small><strong>{{ missing_cells }}</strong><p>{{ duplicate_rows }} duplicate row{% if duplicate_rows != 1 %}s{% endif %}</p></div>
-        </div>
+        <div class="dashboard-stat-card"><div><small>Records</small><strong>{{ '{:,}'.format(total_records) }}</strong></div></div>
+        {% if date_range %}<div class="dashboard-stat-card"><div><small>Date Range</small><strong class="overview-date-range">{{ date_range }}</strong></div></div>{% endif %}
+        <div class="dashboard-stat-card"><div><small>Data Completeness</small><strong>{{ completion_rate }}%</strong><p>Provided values across your records</p></div></div>
+        <div class="dashboard-stat-card"><div><small>Wellness Areas Detected</small><strong>{{ wellness_column_count }}</strong></div></div>
       </section>
 
       {% if wellness_detected %}
-      <div class="dashboard-detection-note dashboard-detection-success">
-        <span class="material-symbols-outlined">auto_awesome</span>
-        <p>
-          MindHabits detected {{ wellness_column_count }} useful wellness concept{% if wellness_column_count != 1 %}s{% endif %}.
-          {% if date_column %}Available dates are used for simple trends.{% else %}No usable date column was found, so distributions are shown instead.{% endif %}
-        </p>
-      </div>
+      <div class="dashboard-detection-note dashboard-detection-success"><span class="material-symbols-outlined">auto_awesome</span><p>Wellness areas detected: {{ wellness_areas | join(', ') }}.</p></div>
       {% else %}
-      <div class="dashboard-detection-note">
-        <span class="material-symbols-outlined">info</span>
-        <p>No clear wellness-related variables were detected in this dataset. Basic dataset information and useful generic summaries are shown where possible.</p>
-      </div>
+      <div class="dashboard-detection-note"><span class="material-symbols-outlined">info</span><p>MindHabits did not detect enough wellness-related information to generate meaningful wellness summaries.</p></div>
       {% endif %}
 
+      {% if column_summaries %}
       <section class="dashboard-section">
         <div class="table-heading dashboard-section-heading">
-          <div><h2>Quick summaries</h2><p>Simple highlights from the available values.</p></div>
+          <div><h2>Your Data at a Glance</h2><p>Simple highlights from the available values.</p></div>
         </div>
-        {% if column_summaries %}
         <div class="dashboard-stats">
           {% for summary in column_summaries %}
           <article class="dashboard-stat-card dashboard-summary-card">
             <div>
-              <small>{{ summary.name | replace('_', ' ') | title }} &middot; {{ summary.kind }}</small>
+              <small>{{ summary.label }}</small>
               <strong>{{ summary.main }}</strong>
               <p>{{ summary.detail }}</p>
             </div>
           </article>
           {% endfor %}
         </div>
-        {% if selection_note %}<p class="dashboard-limit-note">{{ selection_note }}</p>{% endif %}
-        {% else %}
-        <div class="dashboard-empty">Add some values to see summaries here.</div>
-        {% endif %}
       </section>
 
       <section class="dashboard-section">
         <div class="table-heading dashboard-section-heading">
-          <div><h2>Patterns and Distributions</h2><p>See useful changes over time or the values that appear most often.</p></div>
+          <div><h2>Key Patterns</h2><p>See useful changes over time or the values that appear most often.</p></div>
         </div>
         {% if distribution_charts %}
         <div class="dashboard-chart-grid">
           {% for chart in distribution_charts %}
           <article class="chart-card">
             <div class="chart-card-heading">
-              <div><h2>{{ chart.name | replace('_', ' ') | title }}</h2><p>{{ chart.description }}</p></div>
+              <div><h2>{{ chart.title }}</h2></div>
             </div>
-            <div class="dashboard-chart-container"><canvas id="distributionChart{{ loop.index0 }}"></canvas></div>
+            <div class="dashboard-chart-container"><canvas id="distributionChart{{ loop.index0 }}" role="img" aria-label="{{ chart.title }}. {{ chart.description }}"></canvas></div>
+            <p class="overview-chart-description">{{ chart.description }}</p>
           </article>
           {% endfor %}
         </div>
@@ -113,12 +88,23 @@
         {% endif %}
       </section>
 
+      {% endif %}
+      <details class="overview-records">
+        <summary>View Your Records</summary>
+        <p>Your Records: showing the first {{ record_rows | length }} of {{ '{:,}'.format(total_records) }} records.</p>
+        <div class="table-wrapper" tabindex="0" role="region" aria-label="Your records, scroll horizontally to view all columns">
+          <table class="data-table"><thead><tr>{% for column in record_columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in record_rows %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+        </div>
+        {% if duplicate_rows %}<p>{{ duplicate_rows }} duplicate record{% if duplicate_rows != 1 %}s{% endif %} in the full dataset.</p>{% endif %}
+      </details>
+
       <section class="dashboard-next-step">
         <div>
           <span class="material-symbols-outlined">psychology</span>
           <div><h3>Explore your well-being</h3><p>Continue with the current dataset to explore well-being patterns.</p></div>
         </div>
-        <a href="{{ url_for('wellbeing') }}" class="primary-button">Mental Well-Being <span class="material-symbols-outlined">arrow_forward</span></a>
+        <a href="{{ url_for('wellbeing') }}" class="primary-button">Analyse My Well-Being <span class="material-symbols-outlined">arrow_forward</span></a>
       </section>
     </main>
   </div>
